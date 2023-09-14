@@ -12,6 +12,8 @@ ccHTTPd started as a student project in 2008 and was revived in 2023 when a BSD-
 
 2. If you need some BSD-licensed PCAP parser in a pipeline where GPL code is not allowed and you cannot use `tshark`, `wireshark` etc., you can use ccHTTPd.
 
+### Example
+
 Here is some easy example of using the PCAP module:
 
 ```
