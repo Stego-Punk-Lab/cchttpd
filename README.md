@@ -28,3 +28,43 @@ timestamp;caplen;wirelen;ethertype;l3prot;ip.src;ip.dst;ip.v;ip.hl;ip.tos;ip.id;
 1694626468.100424;94;94;ip6;tcp;;;;;;;;;;::1;::1;41510;22;392478046;0;10;2;50431;0;;;;
 1694626468.100435;74;74;ip6;tcp;;;;;;;;;;::1;::1;22;41510;0;394155767;5;20;0;0;;;;
 ```
+
+### Setup in a Nutshell
+
+First, build the main server.
+
+```
+$ ./configure
+$ make
+$ sudo make install
+```
+Add `PCAP=NO` in front of `./configure` to disable support for *libpcap*.
+
+Now, test the server by running:
+
+```
+$ make run
+```
+
+Visit [http://127.0.0.1:8080](http://127.0.0.1:8080) to see if it works.
+
+Now, let's build a sample C module and install it:
+
+```
+$ make modfoo
+$ sudo make install_modfoo
+```
+
+Visit [http://127.0.0.1:8080/cgi-bin/modfoo.cm](http://127.0.0.1:8080/cgi-bin/modfoo.cm) to see if it works.
+
+Now, build and install the PCAP module, if you want to use it:
+
+```
+$ make modpcap
+$ sudo make install_modpcap
+```
+
+Visit [http://127.0.0.1:8080/cgi-bin/modpcap.cm?file=ip6.pcap](http://127.0.0.1:8080/cgi-bin/modpcap.cm?file=ip6.pcap) to see if it works. It should provide you with the packet data for the pcap file *ip6.pcap*, located in */var/www/pcaps*. Place your *.pcap* files in */var/www/pcaps/* and you should be able to use them.
+
+
+
