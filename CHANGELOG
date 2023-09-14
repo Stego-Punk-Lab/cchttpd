@@ -1,0 +1,31 @@
+pcapHTTPd ChangeLog:
+
+----------------- version 0.x --------------------------------
+
+0.2.1: Fri, Sep-15-2023, 3450 LOC
+ - serveral bugfixes; made sure code runs on current OS versions
+ - created pcap module
+ - modified/extended Makefile, configure script etc.
+
+0.2.0: Sat, Mar-29-2008, 23:31 CET, 2797 LOC
+ - added path protection (GET /../../../etc/passwd and the like)
+ - max num of connections (mutex'ed)
+ - c module loader now uses mutexes too
+ - TCP_CORK socket option now in use + some other performance
+   improvements (replaced unneded strlen() calls, replaced recv()
+   and send() where it made sense). sendfile() was already in use
+   but in future I need to work on something for *BSD, Solaris and
+   the like.
+ - ~55.000 req/10 sec on my old laptop, using -parallel 200 and
+   ~44.000 req/10 sec on my old laptop, using -parallel 100 and
+   only one URL with httpload. now I am faster than apache 2.2
+   (that takes ~37.000 req/10 sec) but far away from being perfect.
+
+0.1.0: Fri, Mar-21-2008, 23:19 CET
+ - first more or less useable version
+ - ~28.000 req/10 sec on my old laptop, using -parallel 100 and
+   only one URL with httpload
+
+0.0.0-Project-Start: Sun, Mar-09-2008, 22:30 CET
+ - Just had the idea. Let's switch into the C hack mode.
+
