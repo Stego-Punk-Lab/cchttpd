@@ -40,6 +40,8 @@ $ sudo make install
 ```
 Add `PCAP=NO` in front of `./configure` to disable support for *libpcap*.
 
+**Note:** Please make sure that */var/log/cchttpd* is writeable by the user you are running this server with.
+
 Now, test the server by running:
 
 ```
@@ -55,7 +57,9 @@ $ make modfoo
 $ sudo make install_modfoo
 ```
 
-Visit [http://127.0.0.1:8080/cgi-bin/modfoo.cm](http://127.0.0.1:8080/cgi-bin/modfoo.cm) to see if it works.
+**Note:** Please make sure that */var/www/cgi-bin/modfoo.cm* is owned by the user you plan to run cchttpd with.
+
+Again, start the server (e.g., through `make run`) and visit [http://127.0.0.1:8080/cgi-bin/modfoo.cm](http://127.0.0.1:8080/cgi-bin/modfoo.cm) to see if it works.
 
 Now, build and install the PCAP module, if you want to use it:
 
@@ -64,7 +68,9 @@ $ make modpcap
 $ sudo make install_modpcap
 ```
 
-Visit [http://127.0.0.1:8080/cgi-bin/modpcap.cm?file=ip6.pcap](http://127.0.0.1:8080/cgi-bin/modpcap.cm?file=ip6.pcap) to see if it works. It should provide you with the packet data for the pcap file *ip6.pcap*, located in */var/www/pcaps*. Place your *.pcap* files in */var/www/pcaps/* and you should be able to use them.
+**Note:** Please make sure that /var/www/cgi-bin/modpcap.cm is owned by the user you plan to run cchttpd with.
+
+Finally, visit [http://127.0.0.1:8080/cgi-bin/modpcap.cm?file=ip6.pcap](http://127.0.0.1:8080/cgi-bin/modpcap.cm?file=ip6.pcap) to see if it works. It should provide you with the packet data for the pcap file *ip6.pcap*, located in */var/www/pcaps*. Place your *.pcap* files in */var/www/pcaps/* and you should be able to use them.
 
 
 
