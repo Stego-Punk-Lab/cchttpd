@@ -59,7 +59,7 @@ $ sudo make install_modfoo
 
 **Note:** Please make sure that */var/www/cgi-bin/modfoo.cm* is owned by the user you plan to run cchttpd with.
 
-Again, start the server (e.g., through `make run`) and visit [http://127.0.0.1:8080/cgi-bin/modfoo.cm](http://127.0.0.1:8080/cgi-bin/modfoo.cm) to see if it works.
+Again, start the server (e.g., through `make run`) and visit [http://127.0.0.1:8080/cgi-bin/modfoo.cm](http://127.0.0.1:8080/cgi-bin/modfoo.cm) to see if it works. If you want, pass a query parameter: [http://127.0.0.1:8080/cgi-bin/modfoo.cm?name=Max](http://127.0.0.1:8080/cgi-bin/modfoo.cm?name=Max).
 
 Now, build and install the PCAP module, if you want to use it:
 
