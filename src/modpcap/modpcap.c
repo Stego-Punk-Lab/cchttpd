@@ -49,9 +49,11 @@ get_framelen(int datalink)
 	case DLT_IEEE802:
 		framelen = 22;
 		break;
+#ifdef __linux__
 	case DLT_LINUX_SLL:
 		framelen = 16;
 		break;
+#endif
 	case DLT_SLIP:
 		framelen=24;
 		break;

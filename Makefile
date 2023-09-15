@@ -38,7 +38,7 @@ server  : main.o server.o parse_reqhdr.o log.o cdpstrings.o create_resp.o
 	expr `cat build` \+ 1 >build
 	$(CC) $(DEBUG) $(BUILDFLAGS) -o bin/cchttpd main.o server.o \
 	parse_reqhdr.o log.o cdpstrings.o create_resp.o \
-	$(SOLNETLIBS) $(LIBDIRS) $(SOLNETLIBS) $(GCCLOCALPTHREAD) $(LIBPTHREAD) -ldl
+	$(SOLNETLIBS) $(LIBDIRS) $(SOLNETLIBS) $(GCCLOCALPTHREAD) $(LIBPTHREAD) $(LIBDL)
 	@#strip bin/cchttpd
 
 strip : bin/cchttpd

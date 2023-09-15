@@ -148,7 +148,7 @@ else
 	echo "no"
 fi
 
-out "config for gcc-local -pthread..."
+out "config for cc-local -pthread..."
 if [ "$OS" = "OpenBSD" ]; then
 	USE_GCCLOCAL_PTHREAD="YES"
 	NEED_GCCLOCAL_PTHREAD="YES"
@@ -166,7 +166,7 @@ fi
 
 ############# OS INDEPENDENT PART #############
 
-out "checking for gcc..."; gcc -v >/dev/null 2>&1; check "yes" "no" 'You need gcc (or set PATH).'
+out "checking for cc..."; cc -v >/dev/null 2>&1; check "yes" "no" 'You need cc (or set PATH).'
 
 ###############
 out "checking for libc..."
@@ -177,7 +177,7 @@ int main() {
 	return 0;
 }
 EOF
-gcc -o temp temp.c>/dev/null 2>&1; check "yes" "no" "You need libc."
+cc -o temp temp.c>/dev/null 2>&1; check "yes" "no" "You need libc."
 rm -f temp temp.c
 
 
@@ -190,7 +190,7 @@ int main() {
         return 0;
 }
 EOF
-gcc -o temp -fstack-protector temp.c>/dev/null 2>&1
+cc -o temp -fstack-protector temp.c>/dev/null 2>&1
 if [ "$?" = "1" ]; then
 	echo 'no (compinling without stack protection)'
 	STACK_PROT=""
@@ -210,13 +210,13 @@ int main() {
 
 	ltime = time(NULL);
 	if (ltime == (time_t) - 1) {
-		return;
+		return 0;
 	}
 	strftime(unused, 0xff-1, "%a, %d %b %y %H:%M:%S", localtime(&ltime));
 	return 0;
 }
 EOF
-gcc -o temp temp.c >/dev/null 2>&1; check "yes" "no" 'You need strftime() and ltime().'
+cc -o temp temp.c >/dev/null 2>&1; check "yes" "no" 'You need strftime() and ltime().'
 rm -f temp temp.c
 
 ###############
@@ -225,17 +225,21 @@ cat << EOF >temp.c
 #include <pthread.h>
 int main(){pthread_self();return 0;}
 EOF
-gcc -o temp temp.c -lpthread >/dev/null 2>&1; check "yes" "no" "You need libphtread."
+cc -o temp temp.c -lpthread >/dev/null 2>&1; check "yes" "no" "You need libphtread."
 rm -f temp temp.c
 
 ###############
 if [ "$PCAP" = "" ]; then
 	out "checking for libcap..."
 	cat << EOF >temp.c
+#ifdef __OpenBSD__
+	#include <pcap.h>
+#else
 	#include <pcap/pcap.h>
+#endif
 	int main(){pcap_t *descr; char errbuf[PCAP_ERRBUF_SIZE]; pcap_open_offline("pcaps/ip6.pcap", errbuf); return 0;}
 EOF
-	gcc -o temp temp.c -lpcap >/dev/null 2>&1; check "yes" "no" "You need libpcap."
+	cc -o temp temp.c -lpcap >/dev/null 2>&1; check "yes" "no" "You need libpcap."
 	rm -f temp temp.c
 else
 	echo "excluded libpcap."
@@ -267,6 +271,10 @@ else
 	echo 'LIBPTHREAD='>> $MAKEFILE_INC
 fi
 
+if [ "`uname`" = "Linux" ]; then
+	echo 'LIBDL=-ldl'>> $MAKEFILE_INC
+fi
+
 echo "TABCPATH=$TABCPATH">> $MAKEFILE_INC
 echo "ORDER=-DORDER=$ORDER">> $MAKEFILE_INC
 echo >> $MAKEFILE_INC
@@ -288,7 +296,7 @@ BUILDDIR=./bin
 
 INCDIRS=-I. -I./src -I./src/include -I/usr/local/include
 CPP=g++
-CC=gcc
+CC=cc
 LEX=flex
 YACC=bison
 

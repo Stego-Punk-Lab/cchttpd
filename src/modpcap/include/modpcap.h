@@ -119,8 +119,14 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/udp.h>
-#include <net/ethernet.h>
-#include <pcap/pcap.h>
+#ifdef __linux__
+	#include <net/ethernet.h>
+	#include <pcap/pcap.h>
+#elif __OpenBSD__
+	#include <net/if_arp.h>
+	#include <netinet/if_ether.h>
+	#include <pcap.h>
+#endif
 
 #ifndef PCAP_BASEPATH
 	#define PCAP_BASEPATH "/var/www/pcaps/"

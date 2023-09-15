@@ -194,7 +194,7 @@ do_server(void *sock_info_p)
 					} else {
 						if (read(file, buf, shdr.filesize) == -1) {
 							perror("read()");
-							logstr(__FILE__, __LINE__, "calloc() error");
+							logstr(__FILE__, __LINE__, "read() error");
 							free_hdr_contents(shdr, TYPE_SERVER);
 							kill_connection(&inf);
 							go_on = 0;
@@ -223,9 +223,29 @@ do_server(void *sock_info_p)
 #ifdef __linux__
 						sendfile(sinf->fd, file, NULL, shdr.filesize);
 #else
-						#error "Currently only Linux sendfile() supported."
+						char *file_content = NULL;
+						file_content = (char *) calloc(shdr.filesize + 1, sizeof(char));
+						if (!file_content) {
+							perror("calloc");
+							logstr(__FILE__, __LINE__, "calloc() error");
+							free_hdr_contents(shdr, TYPE_SERVER);
+							kill_connection(&inf);
+							go_on = 0;
+						} else {
+							if(read(file, file_content, shdr.filesize) == -1) {
+								perror("read()");
+								logstr(__FILE__, __LINE__, "read() error");
+								free_hdr_contents(shdr, TYPE_SERVER);
+								kill_connection(&inf);
+								go_on = 0;
+							} else {
+								if (write(sinf->fd, file_content, shdr.filesize) == -1) {
+									perror("write()");
+									logstr(__FILE__, __LINE__, "write() error");
+								}
+							}
+						}
 #endif
-						/* close file (in this case: a real file, not a pipe) */
 						close(file);
 					}
 				}
