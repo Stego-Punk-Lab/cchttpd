@@ -44,15 +44,31 @@ cwd_print(_cwd_hndl hndl, char *str)
 }
 
 char *
-cwd_get_value_from_var(char *query, char *varname)
+cwd_get_value_from_var(char *query_in, char *varname)
 {
-	char *token, *subtoken, *saveptr1, *saveptr2;
-	char *value;
-	char *init_str = query;
+	char *token = NULL, *subtoken = NULL, *saveptr1 = NULL, *saveptr2 = NULL;
+	char *value = NULL;
+	char *init_str = NULL;
+	int query_len;
+	char *query = NULL;
 	
+	/* first, create a copy of the query that we free afterwards */
+	query_len = strlen(query_in);
+	if (query_len) {
+		query = (char *) calloc(query_len + 1, sizeof(char));
+		if (query == NULL) {
+			perror("calloc");
+			return NULL;
+		}
+		memcpy(query, query_in, query_len);
+	} else {
+		return NULL;
+	}
+
+	init_str = query;
 	while (1) {
 		if ((token = strtok_r(init_str, "?&", &saveptr1)) == NULL) {
-			/*fprintf(stderr, "strtok_r() returned NULL\n");*/
+			/*fprintf(stderr, "strtok_r() returned NULL (init_str='%s', varname='%s')\n", init_str, varname);*/
 			break;
 		}
 		init_str = NULL; /* should be NULL for future calls of strtok_r() */
@@ -68,14 +84,17 @@ cwd_get_value_from_var(char *query, char *varname)
 			/*fprintf(stderr, "    l2.token='%s'\n", subtoken);*/
 			if ((value = calloc(sizeof(char), strlen(subtoken))) == NULL) {
 				perror("calloc");
+				free(query);
 				return NULL;
 			}
 			memcpy(value, subtoken, strlen(subtoken));
+			free(query);
 			return value;
 		} /*else {
-			fprintf(stderr, "->'%s'!='%s'\n", token, varname);
+			fprintf(stderr, "->'%s'!='%s'\n", varname, token);
 		}*/
 	}
+	free(query);
 	return NULL;
 }
 

@@ -23,8 +23,8 @@ CFLAGS+=-Wextra -Wcast-align
 CFLAGS+=$(ADD_CFLAGS)
 
 BUILD=-DBUILD=\"`cat build`\"
-#GDBON=-ggdb -g
-#DEBUG=-DDEBUG $(GDBON)
+GDBON=-ggdb -g
+DEBUG=-DDEBUG $(GDBON)
 BUILDFLAGS=-O2 $(STACK_PROT) $(ADD_LNKFLAGS)
 HDRS=src/include/main.h src/include/cdpstrings.h src/include/mime.h src/include/yccw.h
 
