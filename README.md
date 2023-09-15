@@ -72,6 +72,9 @@ $ sudo make install_modpcap
 
 Finally, visit [http://127.0.0.1:8080/cgi-bin/modpcap.cm?file=ip6.pcap](http://127.0.0.1:8080/cgi-bin/modpcap.cm?file=ip6.pcap) to see if it works. It should provide you with the packet data for the pcap file *ip6.pcap*, located in */var/www/pcaps*. Place your *.pcap* files in */var/www/pcaps/* and you should be able to use them.
 
+**Filters:** Assume you want only IPv4 but no IPv6 packets, and only UDP, but no TCP packets, you could run a simple filter through the URL: 
+[http://127.0.0.1:8080/cgi-bin/modpcap.cm?file=ip6.pcap&ip6=0&tcp=0&ip4=1&udp=1](http://127.0.0.1:8080/cgi-bin/modpcap.cm?file=ip6.pcap&ip6=0&tcp=0&ip4=1&udp=1)
+
 ### Development Documentation for C Modules
 
 This is to be done but *src/modfoo/modfoo.c* is rather self-explanatory.
