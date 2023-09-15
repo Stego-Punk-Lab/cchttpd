@@ -414,9 +414,7 @@ void mod_reqhandler(_cwd_hndl hndl, char *query_string)
 						filter.tcp = 0;
 					}
 					free(tmp_val);
-				} else {
-					fprintf(stderr, "no tcp given\n");
-				}
+				} 
 				if ((tmp_val = cwd_get_value_from_var(query_string, "udp"))) {
 					if (tmp_val[0] == '1') {
 						filter.udp = 1;
