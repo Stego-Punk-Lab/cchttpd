@@ -2,7 +2,7 @@ pcapHTTPd ChangeLog:
 
 ----------------- version 0.x --------------------------------
 
-0.2.1: Fri, Sep-15-2023, 3522 LOC
+0.2.1: Fri, Sep-15-2023, 3630 LOC
  - serveral bugfixes; made sure code runs on current OS versions
  - created pcap module
  - modified/extended Makefile, configure script etc.
