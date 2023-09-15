@@ -375,8 +375,6 @@ create_respinf(httphdr_t *i_hdr, httphdr_t *o_hdr)
 							logstr(__FILE__, __LINE__, "calloc error. not enough mem.");
 							return ERROR_MEMALLOC;
 						}
-						//TODO: is das nicht durch calloc() ueberfluessig??
-						bzero(yfptrs, sizeof(yfptrs_t));
 						
 						mptr = modlist;
 						while (mptr != NULL && !is_loaded) {
