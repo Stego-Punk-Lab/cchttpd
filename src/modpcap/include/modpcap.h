@@ -135,8 +135,15 @@
 #define ERROR_PCAP_FILEQUERY_MISSING "<html><body>Error: You need to provide a filename in the URL. Example: <code>?file=ip6.pcap</code> (the pcap file must be located in <i>" PCAP_BASEPATH "</i>).</body></html>"
 #define ERROR_PCAP_FILE_NOT_OPENED "<html><body>Error: Unable to open your requested file (probably not found or no permission, see server output).</body></html>"
 
-
 #define BZERO(x) bzero(x, sizeof(x));
+
+typedef struct {
+	u_int8_t	ip4:1;
+	u_int8_t	ip6:1;
+	u_int8_t	udp:1;
+	u_int8_t	tcp:1;
+	u_int8_t	others:1;
+} _pcap_filter;
 
 /* Imported from OpenBSD sys/netinet/ip.h; modified for ccHTTPd */
 typedef struct {

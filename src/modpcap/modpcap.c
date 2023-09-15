@@ -123,7 +123,7 @@ handle_udp(_udphdr *udphdr, _hdr_descr *hdr_desc)
 }
 
 char *
-print_pcap_contents(char *filename)
+print_pcap_contents(char *filename, _pcap_filter filter)
 {
 	pcap_t         *descr;
 	const u_char   *packet;
@@ -204,6 +204,9 @@ print_pcap_contents(char *filename)
 
 		switch (htons(eh->ether_type)) {
 		case ETHERTYPE_IP:
+			if (filter.ip4 == 0) {
+				continue; /* skip */
+			}
 			// check if iphdr fits into rest of frame b/f cont.
 			if (hdr.caplen < (sizeof(struct ether_header) + sizeof(_iphdr))) {
 				fprintf(stderr, "Packet too small for IP header. Skipping.\n");
@@ -229,12 +232,18 @@ print_pcap_contents(char *filename)
 				hdr_desc.str_l3_proto = "igmp";
 				break;
 			case 6:
+				if (filter.tcp == 0) {
+					continue; /* skip */
+				}
 				hdr_desc.str_l3_proto = "tcp";
 				tcphdr = (_tcphdr *) (packet + framelen + (iphdr->ip_hl*4));
 				//FIXME: check pkt len to see if it fits tcphdr
 				handle_tcp(tcphdr, &hdr_desc);
 				break;
 			case 17:
+				if (filter.udp == 0) {
+					continue; /* skip */
+				}
 				hdr_desc.str_l3_proto = "udp";
 				udphdr = (_udphdr *) (packet + framelen + (iphdr->ip_hl*4));
 				//FIXME: check pkt len to see if it fits udphdr
@@ -248,6 +257,9 @@ print_pcap_contents(char *filename)
 			}
 			break;
 		case ETHERTYPE_IPV6:
+			if (filter.ip6 == 0) {
+				continue; /* skip */
+			}
 			// check if iphdr fits into rest of frame b/f cont.
 			if (hdr.caplen < (sizeof(struct ether_header) + sizeof(_ip6hdr))) {
 				fprintf(stderr, "Packet too small for IP6 header. Skipping.\n");
@@ -272,12 +284,18 @@ print_pcap_contents(char *filename)
 				hdr_desc.str_l3_proto = "igmp";
 				break;
 			case 6:
+				if (filter.tcp == 0) {
+					continue; /* skip */
+				}
 				hdr_desc.str_l3_proto = "tcp";
 				//FIXME: check pkt len to see if it fits tcphdr
 				tcphdr = (_tcphdr *) (packet + framelen + sizeof(_ip6hdr));
 				handle_tcp(tcphdr, &hdr_desc);
 				break;
 			case 17:
+				if (filter.udp == 0) {
+					continue; /* skip */
+				}
 				hdr_desc.str_l3_proto = "udp";
 				//FIXME: check pkt len to see if it fits udphdr
 				udphdr = (_udphdr *) (packet + framelen + sizeof(_ip6hdr));
@@ -349,6 +367,8 @@ print_pcap_contents(char *filename)
 void mod_reqhandler(_cwd_hndl hndl, char *query_string)
 {
 	char *pcap_output = NULL;
+	_pcap_filter filter;
+	
 	if (query_string) {
 		char *filename;
 		filename = cwd_get_value_from_var(query_string, "file");
@@ -363,7 +383,60 @@ void mod_reqhandler(_cwd_hndl hndl, char *query_string)
 				free(filename);
 				return;
 			}
-			pcap_output = print_pcap_contents(filename);
+			
+			/* before we open the pcap file, get potential filter content */
+			{
+				char *tmp_val;
+				
+				filter.ip4 = filter.ip6 = filter.tcp = filter.udp = filter.others = 1;
+				
+				if ((tmp_val = cwd_get_value_from_var(query_string, "ip4"))) {
+					if (tmp_val[0] == '1') {
+						filter.ip4 = 1;
+					} else {
+						printf("ip4(tmp_val)=%s\n", tmp_val);
+						filter.ip4 = 0;
+					}
+					free(tmp_val);
+				}
+				if ((tmp_val = cwd_get_value_from_var(query_string, "ip6"))) {
+					if (tmp_val[0] == '1') {
+						filter.ip6 = 1;
+					} else {
+						filter.ip6 = 0;
+					}
+					free(tmp_val);
+				}
+				if ((tmp_val = cwd_get_value_from_var(query_string, "tcp"))) {
+					if (tmp_val[0] == '1') {
+						filter.tcp = 1;
+					} else {
+						filter.tcp = 0;
+					}
+					free(tmp_val);
+				} else {
+					fprintf(stderr, "no tcp given\n");
+				}
+				if ((tmp_val = cwd_get_value_from_var(query_string, "udp"))) {
+					if (tmp_val[0] == '1') {
+						filter.udp = 1;
+					} else {
+						filter.udp = 0;
+					}
+					free(tmp_val);
+				}
+				/* TODO: others is currently not used in the pcap parser! */
+				if ((tmp_val = cwd_get_value_from_var(query_string, "others"))) {
+					if (tmp_val[0] == '1') {
+						filter.others = 1;
+					} else {
+						filter.others = 0;
+					}
+					free(tmp_val);
+				}
+			}
+			
+			pcap_output = print_pcap_contents(filename, filter);
 			if (pcap_output) {
 #ifdef DEBUG
 				printf("len of pcap.output: %li\n", strlen(pcap_output));
