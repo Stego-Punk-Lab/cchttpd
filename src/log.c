@@ -109,8 +109,12 @@ logstr1p(char *file, int line, char *str, char *para)
 	if (!(buf = (char *) calloc(len, sizeof(char)))) {
 		perror("logstr1p: buf = calloc()");
 	}
-	snprintf(buf, len - 1, str, para);//FIXME: replace w/ memcpy() to prevent format string crap
-	logstr(file, line, buf);
+	if (strstr(para, "%%") != NULL) {
+		logstr(file, line, "potential format string attack detected.\n");
+	} else {
+		snprintf(buf, len - 1, str, para);
+		logstr(file, line, buf);
+	}
 	free(buf);
 }
 
