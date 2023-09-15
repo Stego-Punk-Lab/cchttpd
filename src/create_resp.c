@@ -93,8 +93,9 @@ set_errpage(httphdr_t *o_hdr, int error)
 	return 0;
 }
 
-/*
- * check the path for something like /var/www/../../../etc/passwd
+/* chk_path():
+ * 1. check if path contains format string parameter like %s
+ * 2. check the path for something like /var/www/../../../etc/passwd 
  */
 
 int
@@ -106,6 +107,12 @@ chk_path(char *path)
 	int chdir_success = 0;
 	int strlen_path;
 	
+	/* 1. check for format string parameter */
+	if(strstr(path, "%%") != NULL) {
+		return -1;
+	}
+	
+	/* 2. now check the directory path itself */
 	if (strstr(path, "..") != NULL) {
 		/* save our current pwd */
 		if (getcwd(cur_wd, PATH_MAX) == NULL) {
@@ -233,7 +240,7 @@ create_respinf(httphdr_t *i_hdr, httphdr_t *o_hdr)
 		CCALLOC(o_hdr->abs_path, len + 1)
 		snprintf(o_hdr->abs_path, len + 1, "%s%s", htdocs_path, o_hdr->path);
 		
-		/* check if the user tries something like GET /../../../../etc/passwd */
+		/* check if the user tries something like GET /../../../../etc/passwd or %x */
 		if (chk_path(o_hdr->abs_path) != 0) {
 			logstr1p(__FILE__, __LINE__, "User tried hack attemt to disallowed path (chk_path() check) (blocked)\n", o_hdr->abs_path);
 			error = ERROR_FORBIDDEN;
@@ -253,7 +260,7 @@ create_respinf(httphdr_t *i_hdr, httphdr_t *o_hdr)
 				break;
 			} else {
 				perror("access");
-				logstr1p(__FILE__, __LINE__, "No read access: %s\n", o_hdr->abs_path); //FIXME--check the function if format string issue
+				logstr1p(__FILE__, __LINE__, "No read access: %s\n", o_hdr->abs_path); /* already checked for format-string inclusion w/ chk_path() */
 				error = ERROR_FORBIDDEN;
 				set_errpage(o_hdr, error);
 				break;
@@ -329,18 +336,18 @@ create_respinf(httphdr_t *i_hdr, httphdr_t *o_hdr)
 					/* if still not found */
 					if (!index_ok) {
 						/* return forbidden since directory listing is not available */
-						logstr1p(__FILE__, __LINE__, "Forbidden (no index file at %s)\n", //FIXME SEC
+						logstr1p(__FILE__, __LINE__, "Forbidden (no index file at %s)\n",
 							o_hdr->path);
 						error = ERROR_FORBIDDEN;
 						set_errpage(o_hdr, error);
-						break; //FIXME (might be correct)
+						break;
 					}
 				} else {
-					logstr1p(__FILE__, __LINE__, "Forbidden (%s not a regular file)\n", //FIXME SEC
+					logstr1p(__FILE__, __LINE__, "Forbidden (%s not a regular file)\n",
 						o_hdr->path);
 					error = ERROR_FORBIDDEN;
 					set_errpage(o_hdr, error);
-					break; //FIXME (might be correct)
+					break;
 				}
 			}
 			
@@ -562,7 +569,7 @@ prefinish_module_load:
 			/* Set 'Content-Length:' */
 			if (i_hdr->method & (HTTP_METHOD_GET | HTTP_METHOD_HEAD)) {
 				/* 1st part: for non-cgi */
-				if (strncmp(o_hdr->path, "/cgi-bin", 8) != 0) { // FIXME-CHECK: or better to check if (o_hdr->is_cmod == 1) ???
+				if (o_hdr->is_cmod == 0) {
 					/* Only add the size, if the size is -lt 2 GB */
 					if (st.st_size < 0x7fffffff) {/* 2 GBytes! */
 						char *buf;
@@ -580,7 +587,7 @@ prefinish_module_load:
 					
 					/* get the content len based on the information of the fd */
 					lseek(bodyfile, 0, SEEK_SET);
-					if (ioctl(bodyfile, FIONREAD, &o_hdr->filesize) == -1) { //FIXME: does FIONREAD work for open files? otherwise use get_openfilelen()
+					if (ioctl(bodyfile, FIONREAD, &o_hdr->filesize) == -1) {
 						perror("ioctl()");
 						logstr(__FILE__, __LINE__, "ioctl() error");
 						o_hdr->filesize = 0;
