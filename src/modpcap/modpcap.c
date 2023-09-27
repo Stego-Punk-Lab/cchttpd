@@ -126,8 +126,9 @@ char *
 print_pcap_contents(char *filename, _pcap_filter filter)
 {
 	pcap_t         *descr;
+	int pcap_next_ex_result = 0;
 	const u_char   *packet;
-	struct pcap_pkthdr hdr;
+	struct pcap_pkthdr *hdr;
 	_iphdr         *iphdr;
 	_ip6hdr        *ip6hdr;
 	_tcphdr        *tcphdr;
@@ -182,7 +183,8 @@ print_pcap_contents(char *filename, _pcap_filter filter)
 	}
 	memcpy(output, header, realloc_len);
 
-	while ((packet = pcap_next(descr, &hdr)) != NULL) {
+	/* we keep the result returned by pcap_next_ex() to check it later */
+	while ((pcap_next_ex_result = pcap_next_ex(descr, &hdr, &packet /* packet data */)) == 1) {
 		count++;
 		/* start a new packet w/ empty string */
 		bzero(new_pkt_str, sizeof(new_pkt_str));
@@ -196,7 +198,7 @@ print_pcap_contents(char *filename, _pcap_filter filter)
 		udphdr = NULL;
 		
 		// check size of ether_header is actually given!
-		if (hdr.caplen < sizeof(struct ether_header)) {
+		if (hdr->caplen < sizeof(struct ether_header)) {
 			fprintf(stderr, "Packet too small for Ethernet header. Skipping.\n");
 			break;
 		}
@@ -208,7 +210,7 @@ print_pcap_contents(char *filename, _pcap_filter filter)
 				continue; /* skip */
 			}
 			// check if iphdr fits into rest of frame b/f cont.
-			if (hdr.caplen < (sizeof(struct ether_header) + sizeof(_iphdr))) {
+			if (hdr->caplen < (sizeof(struct ether_header) + sizeof(_iphdr))) {
 				fprintf(stderr, "Packet too small for IP header. Skipping.\n");
 				break;
 			}
@@ -261,7 +263,7 @@ print_pcap_contents(char *filename, _pcap_filter filter)
 				continue; /* skip */
 			}
 			// check if iphdr fits into rest of frame b/f cont.
-			if (hdr.caplen < (sizeof(struct ether_header) + sizeof(_ip6hdr))) {
+			if (hdr->caplen < (sizeof(struct ether_header) + sizeof(_ip6hdr))) {
 				fprintf(stderr, "Packet too small for IP6 header. Skipping.\n");
 				break;
 			}
@@ -337,7 +339,7 @@ print_pcap_contents(char *filename, _pcap_filter filter)
 			"%s;%s;%s;%s" /* udp */
 			"\n",
 			/* meta + frame */
-			hdr.ts.tv_sec, hdr.ts.tv_usec, hdr.caplen, hdr.len,
+			hdr->ts.tv_sec, hdr->ts.tv_usec, hdr->caplen, hdr->len,
 			/* ethernet and proto types */
 		    	hdr_desc.str_ether_type, (hdr_desc.str_l3_proto == NULL ? "" : hdr_desc.str_l3_proto),
 		    	/* ipv4 */
@@ -350,6 +352,15 @@ print_pcap_contents(char *filename, _pcap_filter filter)
 			hdr_desc.str_udp_sport, hdr_desc.str_udp_dport, hdr_desc.str_udp_len, hdr_desc.str_udp_cksum);
 		
 		output = push(&realloc_len, output, new_pkt_str);
+	}
+	/* check for some errors while parsing:
+         * 0: pkt read from live cap. but timeout;
+         * PCAP_ERROR_BREAK: no more packets;
+         * PCAP_ERROR_NOT_ACTIVATED and PCAP_ERROR can also occur */
+	if (pcap_next_ex_result == PCAP_ERROR_NOT_ACTIVATED || pcap_next_ex_result == PCAP_ERROR) {
+		fprintf(stderr, "pcap parsing error (packet!=1 returned by pcap_next_ex())!\n");
+	} else if (pcap_next_ex_result == PCAP_ERROR_BREAK) {
+		; /*fprintf(stderr, "all packets have been read.\n");*/
 	}
 	/* now put the packet count at the beginning of the string */
 	snprintf(output, 29, "num.packets=%.16d", count);
@@ -364,7 +375,8 @@ print_pcap_contents(char *filename, _pcap_filter filter)
 // /home/wendzel/git/papers/002_Unfinished/TDSC_DYST/recordings/CS_home_idle_saturday_away.pcap
 // /home/wendzel/git/projects/old_projects/xyriahttpd/ip6.pcap
 
-void mod_reqhandler(_cwd_hndl hndl, char *query_string)
+void
+mod_reqhandler(_cwd_hndl hndl, char *query_string)
 {
 	char *pcap_output = NULL;
 	_pcap_filter filter;

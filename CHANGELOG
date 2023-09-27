@@ -2,11 +2,12 @@ pcapHTTPd ChangeLog:
 
 ----------------- version 0.x --------------------------------
 
-0.2.1: Fri, Sep-15-2023, 3630 LOC
+0.2.2: Wed, Sep-27-2023, 3640 LOC
  - serveral bugfixes; made sure code runs on current OS versions
  - created pcap module
  - modified/extended Makefile, configure script etc.
  - port back to OpenBSD
+ - enable pcapng format parsing
 
 0.2.0: Sat, Mar-29-2008, 23:31 CET, 2797 LOC
  - added path protection (GET /../../../etc/passwd and the like)
