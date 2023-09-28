@@ -92,6 +92,7 @@ push(int *realloc_len, char *output, char *string_to_add)
 	}
 
 	if (!(output = realloc(output, *realloc_len + add_len + 1))) {
+		perror("push():realloc()");
 		return NULL;
 	}
 	bzero(output + *realloc_len, add_len + 1);
@@ -162,10 +163,9 @@ print_pcap_contents(char *filename, _pcap_filter filter)
 
 	if ((descr = pcap_open_offline(filename_full_path, errbuf)) == NULL) {
 #ifdef DEBUG
-		fprintf(stderr, "pcap file: %s\n", filename_full_path);
+		fprintf(stderr, "pcap file: '%s', errbuf=%s\n", filename_full_path, errbuf);
 #endif
 		free(filename_full_path);
-		perror("pcap_open_offline()");
 		return NULL;
 	}
 	free(filename_full_path);
