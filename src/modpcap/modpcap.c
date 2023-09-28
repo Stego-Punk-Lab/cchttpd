@@ -81,7 +81,7 @@ get_framelen(int datalink)
 	return framelen;
 }
 
-char *
+/*char *
 push(int *realloc_len, char *output, char *string_to_add)
 {
 	int add_len = strlen(string_to_add);
@@ -100,7 +100,7 @@ push(int *realloc_len, char *output, char *string_to_add)
 	memcpy(output + *realloc_len, string_to_add, add_len);
 	*realloc_len += add_len;
 	return output;
-}
+}*/
 
 void
 handle_tcp(_tcphdr *tcphdr, _hdr_descr *hdr_desc)
@@ -124,8 +124,8 @@ handle_udp(_udphdr *udphdr, _hdr_descr *hdr_desc)
 	snprintf(hdr_desc->str_udp_cksum, sizeof(hdr_desc->str_udp_cksum) - 1, "%u", htons(udphdr->uh_sum));
 }
 
-char *
-print_pcap_contents(char *filename, _pcap_filter filter)
+int
+print_pcap_contents(_cwd_hndl hndl, char *filename, _pcap_filter filter)
 {
 	pcap_t         *descr;
 	int pcap_next_ex_result = 0;
@@ -148,8 +148,11 @@ print_pcap_contents(char *filename, _pcap_filter filter)
 		"tcp.sport;tcp.dport;tcp.seq;tcp.ack;tcp.off;tcp.flags;tcp.win;tcp.urp;"
 		"udp.sport;udp.dport;udp.len;udp.cksum\n"
 	   };
-	char            *output = NULL, *output_tmp = NULL;
-	int realloc_len = 0;
+#define OUTPUT_SIZE 1024*1024*2 /* 2 MBytes */
+	char output[OUTPUT_SIZE] = {'\0'};
+	int output_len_whole = 0,
+	    output_len_cur = 0,
+	    len_new_pkt_str = 0;
 	_hdr_descr hdr_desc;
 	char new_pkt_str[4096] = { '\0' };
 	char *filename_full_path = NULL;
@@ -157,7 +160,7 @@ print_pcap_contents(char *filename, _pcap_filter filter)
 	if ((filename_full_path = calloc(sizeof(char), strlen(PCAP_BASEPATH) + strlen(filename) + 1)) == NULL) {
 		perror("calloc");
 		fprintf(stderr, "calloc()");
-		return NULL;
+		return -1;
 	}
 	memcpy(filename_full_path, PCAP_BASEPATH, strlen(PCAP_BASEPATH));
 	memcpy(filename_full_path+strlen(PCAP_BASEPATH), filename, strlen(filename));
@@ -167,23 +170,19 @@ print_pcap_contents(char *filename, _pcap_filter filter)
 		fprintf(stderr, "pcap file: '%s', errbuf=%s\n", filename_full_path, errbuf);
 #endif
 		free(filename_full_path);
-		return NULL;
+		return -1;
 	}
 	free(filename_full_path);
 
 	datalink = pcap_datalink(descr);
 	if ((framelen = get_framelen(datalink)) == 0) {
 		fprintf(stderr, "invalid frame length\n");
-		return NULL;
+		return -1;
 	}
 
-	realloc_len = strlen(header);
-	if (!(output = calloc(realloc_len + 1, sizeof(char)))) {
-		perror("calloc");
-		return NULL;
-	}
-	memcpy(output, header, realloc_len);
-
+	memcpy(output, header, strlen(header));
+	output_len_whole = output_len_cur = strlen(header);
+	
 	/* we keep the result returned by pcap_next_ex() to check it later */
 	while ((pcap_next_ex_result = pcap_next_ex(descr, &hdr, &packet /* packet data */)) == 1) {
 		count++;
@@ -273,11 +272,11 @@ print_pcap_contents(char *filename, _pcap_filter filter)
 			/* convert IPv6 addrs into str */
 			if (inet_ntop(AF_INET6, &ip6hdr->ip6_src, hdr_desc.str_ip6_src, sizeof(hdr_desc.str_ip6_src)) == NULL) {
 				perror("inet_ntop()");
-				return NULL;
+				return -1;
 			}
 			if (inet_ntop(AF_INET6, &ip6hdr->ip6_dst, hdr_desc.str_ip6_dst, sizeof(hdr_desc.str_ip6_dst)) == NULL) {
 				perror("inet_ntop()");
-				return NULL;
+				return -1;
 			}
 			switch (ip6hdr->ip6_ctlun.ip6_un1.ip6_un1_nxt) {
 			case 1:
@@ -352,11 +351,24 @@ print_pcap_contents(char *filename, _pcap_filter filter)
 		    	/* udp */
 			hdr_desc.str_udp_sport, hdr_desc.str_udp_dport, hdr_desc.str_udp_len, hdr_desc.str_udp_cksum);
 		
-		if ((output_tmp = push(&realloc_len, output, new_pkt_str)) == NULL) {
-			/* we are not getting any MORE memory! */
-			fprintf(stderr, "Cannot parse WHOLE pcap file due to memory limitation. Returning the parsed part.\n");
-			break;
+		len_new_pkt_str = strlen(new_pkt_str);
+		if (output_len_cur > (OUTPUT_SIZE - len_new_pkt_str - 2)) {
+			/* output buffer is full: send data and restart filling the buffer from scratch */
+			
+			/* if this is the first sending, overwrite the num.packets and set them to zero to indicate a huge pcap */
+			if (output_len_whole == output_len_cur) {
+				snprintf(output, 29, "num.packets=%.16d", 0);
+				output[28]='\n';
+			}
+			fprintf(stderr, "INTERMEDIATE SENDING!\n");
+			cwd_print(hndl, output);
+			bzero(output, OUTPUT_SIZE);
+			output_len_cur = 0;
 		}
+		/* there is still (or now again!) space in the output buffer: copy new pkt string the output buffer */
+		memcpy(output + output_len_cur, new_pkt_str, len_new_pkt_str);
+		output_len_cur += len_new_pkt_str;
+		output_len_whole += len_new_pkt_str;
 	}
 	/* check for some errors while parsing:
          * 0: pkt read from live cap. but timeout;
@@ -368,10 +380,13 @@ print_pcap_contents(char *filename, _pcap_filter filter)
 		; /*fprintf(stderr, "all packets have been read.\n");*/
 	}
 	/* now put the packet count at the beginning of the string */
-	snprintf(output, 29, "num.packets=%.16d", count);
-	output[28]='\n';
+	if (output_len_whole == output_len_cur) {
+		snprintf(output, 29, "num.packets=%.16d", count);
+		output[28]='\n';
+	}
+	cwd_print(hndl, output);
 	/*fprintf(stderr, "returning output ... %s\n", output);*/
-	return output;
+	return 0;
 }
 
 
@@ -383,7 +398,6 @@ print_pcap_contents(char *filename, _pcap_filter filter)
 void
 mod_reqhandler(_cwd_hndl hndl, char *query_string)
 {
-	char *pcap_output = NULL;
 	_pcap_filter filter;
 	
 	if (query_string) {
@@ -451,14 +465,7 @@ mod_reqhandler(_cwd_hndl hndl, char *query_string)
 				}
 			}
 			
-			pcap_output = print_pcap_contents(filename, filter);
-			if (pcap_output) {
-#ifdef DEBUG
-				printf("len of pcap.output: %li\n", strlen(pcap_output));
-#endif
-				cwd_print(hndl, pcap_output);
-				free(pcap_output);
-			} else {
+			if (print_pcap_contents(hndl, filename, filter) != 0) {
 				cwd_print(hndl, ERROR_PCAP_FILE_NOT_OPENED);
 			}
 		} else {
