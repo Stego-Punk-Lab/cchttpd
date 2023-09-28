@@ -105,6 +105,8 @@ do_server(void *sock_info_p)
 	/* connection timeout */
 	const struct timespec tv = {7, 0};
 	uint8_t go_on = 1;
+	/* for sending files */
+	#define FILE_READING_CHUNKSIZE 1024*1024*2
 	
 	/* This is _SOCK_-inf */
 	sinf = (sinf_t *) sock_info_p;
@@ -178,13 +180,19 @@ do_server(void *sock_info_p)
 						    || error == ERROR_METHOD_NOT_ALLOWED
 						    || error == ERROR_UNDEFINED)
 			) {
+			
+				int read_whole = 0;
+				int read_cur = 0;
+				int read_left = -1;
+				int read_next = 0; /* how many bytes to read next */
+			
 				/* if this is a real file, open it first, if this is pipe input from cgi/c-module, use
 				 * it directly */
 				if (shdr.is_cmod) {
 					char *buf;
 					
 					file = shdr.cgi_file;
-					buf = (char *) calloc(shdr.filesize, sizeof(char) + 1);
+					buf = (char *) calloc(FILE_READING_CHUNKSIZE + 1, sizeof(char));
 					if (!buf) {
 						perror("calloc");
 						logstr(__FILE__, __LINE__, "calloc() error");
@@ -192,18 +200,28 @@ do_server(void *sock_info_p)
 						kill_connection(&inf);
 						go_on = 0;
 					} else {
-						if (read(file, buf, shdr.filesize) == -1) {
-							perror("read()");
-							logstr(__FILE__, __LINE__, "read() error");
-							free_hdr_contents(shdr, TYPE_SERVER);
-							kill_connection(&inf);
-							go_on = 0;
-						} else {
-							if (write(sinf->fd, buf, shdr.filesize) == -1) {
-								perror("write");
-								logstr(__FILE__, __LINE__, "write() error");
+						//FIXME: SENDING PROCESS IS REDUNDANT CODE TO BELOW CASE
+						//FIXME: incorporate Linux' sendfile here too (as in case below)
+						read_whole = read_cur = read_next = 0;
+						read_left = shdr.filesize;
+						while (read_left) {
+							read_next = ( read_left > FILE_READING_CHUNKSIZE ? FILE_READING_CHUNKSIZE : read_left );
+							if ((read_cur = read(file, buf, read_next)) == -1) {
+								perror("read()");
+								logstr(__FILE__, __LINE__, "read() error");
+								free_hdr_contents(shdr, TYPE_SERVER);
+								kill_connection(&inf);
+								go_on = 0;
+							} else {
+								read_whole += read_cur;
+								read_left -= read_cur;
+								if (write(sinf->fd, buf, read_cur) == -1) {
+									perror("write()");
+									logstr(__FILE__, __LINE__, "write() error");
+								}
 							}
 						}
+						
 						close(file);
 						/* remove tmp file */
 						unlink(shdr.cgi_tmpfile_name);
@@ -224,7 +242,7 @@ do_server(void *sock_info_p)
 						sendfile(sinf->fd, file, NULL, shdr.filesize);
 #else
 						char *file_content = NULL;
-						file_content = (char *) calloc(shdr.filesize + 1, sizeof(char));
+						file_content = (char *) calloc(FILE_READING_CHUNKSIZE + 1, sizeof(char));
 						if (!file_content) {
 							perror("calloc");
 							logstr(__FILE__, __LINE__, "calloc() error");
@@ -232,16 +250,25 @@ do_server(void *sock_info_p)
 							kill_connection(&inf);
 							go_on = 0;
 						} else {
-							if(read(file, file_content, shdr.filesize) == -1) {
-								perror("read()");
-								logstr(__FILE__, __LINE__, "read() error");
-								free_hdr_contents(shdr, TYPE_SERVER);
-								kill_connection(&inf);
-								go_on = 0;
-							} else {
-								if (write(sinf->fd, file_content, shdr.filesize) == -1) {
-									perror("write()");
-									logstr(__FILE__, __LINE__, "write() error");
+							/* loop chunk-wise through the file and send chunks too because of memory
+							 * allocation limits! */
+							read_whole = read_cur = read_next = 0;
+							read_left = shdr.filesize;
+							while (read_left) {
+								read_next = ( read_left > FILE_READING_CHUNKSIZE ? FILE_READING_CHUNKSIZE : read_left );
+								if ((read_cur = read(file, file_content, read_next)) == -1) {
+									perror("read()");
+									logstr(__FILE__, __LINE__, "read() error");
+									free_hdr_contents(shdr, TYPE_SERVER);
+									kill_connection(&inf);
+									go_on = 0;
+								} else {
+									read_whole += read_cur;
+									read_left -= read_cur;
+									if (write(sinf->fd, file_content, read_cur) == -1) {
+										perror("write()");
+										logstr(__FILE__, __LINE__, "write() error");
+									}
 								}
 							}
 						}
