@@ -92,6 +92,7 @@ push(int *realloc_len, char *output, char *string_to_add)
 	}
 
 	if (!(output = realloc(output, *realloc_len + add_len + 1))) {
+		fprintf(stderr, "push():realloc(): requested %d bytes\n", *realloc_len + add_len + 1);
 		perror("push():realloc()");
 		return NULL;
 	}
@@ -147,7 +148,7 @@ print_pcap_contents(char *filename, _pcap_filter filter)
 		"tcp.sport;tcp.dport;tcp.seq;tcp.ack;tcp.off;tcp.flags;tcp.win;tcp.urp;"
 		"udp.sport;udp.dport;udp.len;udp.cksum\n"
 	   };
-	char            *output = NULL;
+	char            *output = NULL, *output_tmp = NULL;
 	int realloc_len = 0;
 	_hdr_descr hdr_desc;
 	char new_pkt_str[4096] = { '\0' };
@@ -351,7 +352,11 @@ print_pcap_contents(char *filename, _pcap_filter filter)
 		    	/* udp */
 			hdr_desc.str_udp_sport, hdr_desc.str_udp_dport, hdr_desc.str_udp_len, hdr_desc.str_udp_cksum);
 		
-		output = push(&realloc_len, output, new_pkt_str);
+		if ((output_tmp = push(&realloc_len, output, new_pkt_str)) == NULL) {
+			/* we are not getting any MORE memory! */
+			fprintf(stderr, "Cannot parse WHOLE pcap file due to memory limitation. Returning the parsed part.\n");
+			break;
+		}
 	}
 	/* check for some errors while parsing:
          * 0: pkt read from live cap. but timeout;
