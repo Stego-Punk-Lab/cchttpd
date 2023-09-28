@@ -149,7 +149,7 @@ print_pcap_contents(_cwd_hndl hndl, char *filename, _pcap_filter filter)
 		"udp.sport;udp.dport;udp.len;udp.cksum\n"
 	   };
 #define OUTPUT_SIZE 1024*1024*2 /* 2 MBytes */
-	char output[OUTPUT_SIZE] = {'\0'};
+	char *output = NULL;
 	int output_len_whole = 0,
 	    output_len_cur = 0,
 	    len_new_pkt_str = 0;
@@ -157,9 +157,15 @@ print_pcap_contents(_cwd_hndl hndl, char *filename, _pcap_filter filter)
 	char new_pkt_str[4096] = { '\0' };
 	char *filename_full_path = NULL;
 	
+	if ((output = calloc(OUTPUT_SIZE, sizeof(char))) == NULL) {
+		perror("calloc(output) in print_pcap_contents()\n");
+		return -1;
+	}
+	
 	if ((filename_full_path = calloc(sizeof(char), strlen(PCAP_BASEPATH) + strlen(filename) + 1)) == NULL) {
 		perror("calloc");
 		fprintf(stderr, "calloc()");
+		free(output);
 		return -1;
 	}
 	memcpy(filename_full_path, PCAP_BASEPATH, strlen(PCAP_BASEPATH));
@@ -170,6 +176,7 @@ print_pcap_contents(_cwd_hndl hndl, char *filename, _pcap_filter filter)
 		fprintf(stderr, "pcap file: '%s', errbuf=%s\n", filename_full_path, errbuf);
 #endif
 		free(filename_full_path);
+		free(output);
 		return -1;
 	}
 	free(filename_full_path);
@@ -177,6 +184,7 @@ print_pcap_contents(_cwd_hndl hndl, char *filename, _pcap_filter filter)
 	datalink = pcap_datalink(descr);
 	if ((framelen = get_framelen(datalink)) == 0) {
 		fprintf(stderr, "invalid frame length\n");
+		free(output);
 		return -1;
 	}
 
@@ -272,10 +280,12 @@ print_pcap_contents(_cwd_hndl hndl, char *filename, _pcap_filter filter)
 			/* convert IPv6 addrs into str */
 			if (inet_ntop(AF_INET6, &ip6hdr->ip6_src, hdr_desc.str_ip6_src, sizeof(hdr_desc.str_ip6_src)) == NULL) {
 				perror("inet_ntop()");
+				free(output);
 				return -1;
 			}
 			if (inet_ntop(AF_INET6, &ip6hdr->ip6_dst, hdr_desc.str_ip6_dst, sizeof(hdr_desc.str_ip6_dst)) == NULL) {
 				perror("inet_ntop()");
+				free(output);
 				return -1;
 			}
 			switch (ip6hdr->ip6_ctlun.ip6_un1.ip6_un1_nxt) {
@@ -385,7 +395,7 @@ print_pcap_contents(_cwd_hndl hndl, char *filename, _pcap_filter filter)
 		output[28]='\n';
 	}
 	cwd_print(hndl, output);
-	/*fprintf(stderr, "returning output ... %s\n", output);*/
+	free(output);
 	return 0;
 }
 
