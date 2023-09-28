@@ -370,7 +370,7 @@ print_pcap_contents(_cwd_hndl hndl, char *filename, _pcap_filter filter)
 				snprintf(output, 29, "num.packets=%.16d", 0);
 				output[28]='\n';
 			}
-			fprintf(stderr, "INTERMEDIATE SENDING!\n");
+			//fprintf(stderr, "INTERMEDIATE SENDING!\n");
 			cwd_print(hndl, output);
 			bzero(output, OUTPUT_SIZE);
 			output_len_cur = 0;
