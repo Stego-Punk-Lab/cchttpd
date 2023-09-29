@@ -182,7 +182,6 @@ do_server(void *sock_info_p)
 						    || error == ERROR_UNDEFINED)
 			) {
 			
-				size_t read_whole = 0;
 				ssize_t read_cur = 0;
 				size_t read_left = -1;
 				size_t read_next = 0; /* how many bytes to read next */
@@ -202,7 +201,6 @@ do_server(void *sock_info_p)
 					} else {
 						//FIXME: SENDING PROCESS IS REDUNDANT CODE TO BELOW CASE
 						//FIXME: incorporate Linux' sendfile here too (as in case below)
-						read_whole = read_cur = read_next = 0;
 						read_left = shdr.filesize;
 						//TODO: This check also needs to be applied below!
 						if (shdr.filesize >= 0xffffffff) {
@@ -218,7 +216,6 @@ do_server(void *sock_info_p)
 									kill_connection(&inf);
 									go_on = 0;
 								} else {
-									read_whole += read_cur;
 									read_left -= read_cur;
 									if (write(sinf->fd, buf, read_cur) == -1) {
 										perror("write()");
@@ -256,7 +253,6 @@ do_server(void *sock_info_p)
 						} else {
 							/* loop chunk-wise through the file and send chunks too because of memory
 							 * allocation limits! */
-							read_whole = read_cur = read_next = 0;
 							read_left = shdr.filesize;
 							while (read_left) {
 								read_next = ( read_left > FILE_READING_CHUNKSIZE ? FILE_READING_CHUNKSIZE : read_left );
@@ -266,7 +262,6 @@ do_server(void *sock_info_p)
 									kill_connection(&inf);
 									go_on = 0;
 								} else {
-									read_whole += read_cur;
 									read_left -= read_cur;
 									if (write(sinf->fd, file_content, read_cur) == -1) {
 										perror("write()");
