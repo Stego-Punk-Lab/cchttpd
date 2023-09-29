@@ -181,10 +181,10 @@ do_server(void *sock_info_p)
 						    || error == ERROR_UNDEFINED)
 			) {
 			
-				int read_whole = 0;
-				int read_cur = 0;
-				int read_left = -1;
-				int read_next = 0; /* how many bytes to read next */
+				size_t read_whole = 0;
+				ssize_t read_cur = 0;
+				size_t read_left = -1;
+				size_t read_next = 0; /* how many bytes to read next */
 			
 				/* if this is a real file, open it first, if this is pipe input from cgi/c-module, use
 				 * it directly */
@@ -204,20 +204,28 @@ do_server(void *sock_info_p)
 						//FIXME: incorporate Linux' sendfile here too (as in case below)
 						read_whole = read_cur = read_next = 0;
 						read_left = shdr.filesize;
-						while (read_left) {
-							read_next = ( read_left > FILE_READING_CHUNKSIZE ? FILE_READING_CHUNKSIZE : read_left );
-							if ((read_cur = read(file, buf, read_next)) == -1) {
-								perror("read()");
-								logstr(__FILE__, __LINE__, "read() error");
-								free_hdr_contents(shdr, TYPE_SERVER);
-								kill_connection(&inf);
-								go_on = 0;
-							} else {
-								read_whole += read_cur;
-								read_left -= read_cur;
-								if (write(sinf->fd, buf, read_cur) == -1) {
-									perror("write()");
-									logstr(__FILE__, __LINE__, "write() error");
+						//TODO: This check also needs to be applied below!
+						if (shdr.filesize >= (2^(sizeof(size_t)-1))) {
+							fprintf(stderr, "Requested file is TOO BIG (%zu bytes)!\n", shdr.filesize);
+							free_hdr_contents(shdr, TYPE_SERVER);
+							kill_connection(&inf);
+							go_on = 0;
+						} else {
+							while (read_left) {
+								read_next = ( read_left > FILE_READING_CHUNKSIZE ? FILE_READING_CHUNKSIZE : read_left );
+								if ((read_cur = read(file, buf, read_next)) == -1) {
+									perror("read()");
+									logstr(__FILE__, __LINE__, "read() error");
+									free_hdr_contents(shdr, TYPE_SERVER);
+									kill_connection(&inf);
+									go_on = 0;
+								} else {
+									read_whole += read_cur;
+									read_left -= read_cur;
+									if (write(sinf->fd, buf, read_cur) == -1) {
+										perror("write()");
+										logstr(__FILE__, __LINE__, "write() error");
+									}
 								}
 							}
 						}
