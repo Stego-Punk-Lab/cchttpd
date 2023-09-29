@@ -2,6 +2,13 @@ pcapHTTPd ChangeLog:
 
 ----------------- version 0.x --------------------------------
 
+0.2.3: ???, ??? LOC
+ - several more bugfixes
+ - introduced file size transfer limit of 4GBytes
+TODO:
+   - do_server() cleanup
+   - general code cleanup
+
 0.2.2: Wed, Sep-28-2023, 3690 LOC
  - serveral bugfixes; made sure code runs on current OS versions
  - created pcap module

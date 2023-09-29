@@ -50,7 +50,7 @@
 
 #include "yccw.h"
 
-#define CCHTTPD_VER		"0.2.1"
+#define CCHTTPD_VER		"0.2.3"
 
 #ifndef LOGFILE
  #define LOGFILE		"/var/log/cchttpd"
