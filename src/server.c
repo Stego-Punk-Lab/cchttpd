@@ -117,7 +117,8 @@ do_server(void *sock_info_p)
 	
 	bzero(&shdr, sizeof(httphdr_t));
 	
-	while(go_on) {
+	//TODO FIXME: Clean-up this mess of a function from 2008. Lots of redundancy and crap. kill_connection() etc. should only be called at ONE location.
+	while (go_on) {
 		found = 0;
 		
 		FD_SET(sinf->fd, &fds);
@@ -196,7 +197,6 @@ do_server(void *sock_info_p)
 					if (!buf) {
 						perror("calloc");
 						logstr(__FILE__, __LINE__, "calloc() error");
-						free_hdr_contents(shdr, TYPE_SERVER);
 						kill_connection(&inf);
 						go_on = 0;
 					} else {
@@ -205,9 +205,8 @@ do_server(void *sock_info_p)
 						read_whole = read_cur = read_next = 0;
 						read_left = shdr.filesize;
 						//TODO: This check also needs to be applied below!
-						if (shdr.filesize >= (2^(sizeof(size_t)-1))) {
+						if (shdr.filesize >= 0xffffffff) {
 							fprintf(stderr, "Requested file is TOO BIG (%zu bytes)!\n", shdr.filesize);
-							free_hdr_contents(shdr, TYPE_SERVER);
 							kill_connection(&inf);
 							go_on = 0;
 						} else {
@@ -216,7 +215,6 @@ do_server(void *sock_info_p)
 								if ((read_cur = read(file, buf, read_next)) == -1) {
 									perror("read()");
 									logstr(__FILE__, __LINE__, "read() error");
-									free_hdr_contents(shdr, TYPE_SERVER);
 									kill_connection(&inf);
 									go_on = 0;
 								} else {
@@ -242,7 +240,6 @@ do_server(void *sock_info_p)
 						/* this could be a formatstring attack and is thus only used in DEBUG mode */
 						logstr(__FILE__, __LINE__, shdr.abs_path);
 #endif
-						free_hdr_contents(shdr, TYPE_SERVER);
 						kill_connection(&inf);
 						go_on = 0;
 					} else {
@@ -254,7 +251,6 @@ do_server(void *sock_info_p)
 						if (!file_content) {
 							perror("calloc");
 							logstr(__FILE__, __LINE__, "calloc() error");
-							free_hdr_contents(shdr, TYPE_SERVER);
 							kill_connection(&inf);
 							go_on = 0;
 						} else {
@@ -267,7 +263,6 @@ do_server(void *sock_info_p)
 								if ((read_cur = read(file, file_content, read_next)) == -1) {
 									perror("read()");
 									logstr(__FILE__, __LINE__, "read() error");
-									free_hdr_contents(shdr, TYPE_SERVER);
 									kill_connection(&inf);
 									go_on = 0;
 								} else {
@@ -288,7 +283,6 @@ do_server(void *sock_info_p)
 #ifdef TCP_CORK
 			setsockopt(sinf->fd, IPPROTO_TCP, TCP_CORK, &nope, sizeof(nope));
 #endif
-			
 			free_hdr_contents(shdr, TYPE_SERVER);
 			/* if there was an error or a explicit close ... */
 			if (shdr.connection & CONNECTION_CLOSE || error) {
@@ -297,7 +291,6 @@ do_server(void *sock_info_p)
 				go_on = 0;
 			}
 			bzero(&shdr, sizeof(httphdr_t));
-			
 			bzero(rbuf, len);
 			len = 0;
 		}
@@ -320,7 +313,7 @@ kill_connection(server_cb_inf *inf)
 	close(inf->sinf->fd);
 	
 #ifdef DEBUG
-	printf("client connection closed.\n");
+	printf("server closed connection to client.\n");
 #endif
 	//free(inf);
 	//pthread_detach(pthread_self());
