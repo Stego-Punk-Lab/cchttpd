@@ -89,3 +89,7 @@ timestamp;caplen;wirelen;ethertype;l3prot;ip.src;ip.dst;ip.v;ip.hl;ip.tos;ip.id;
 
 This is to be done but *src/modfoo/modfoo.c* is rather self-explanatory.
 
+### PCAPNG
+
+The pcap-ng file format is supported only on Linux so far.
+
