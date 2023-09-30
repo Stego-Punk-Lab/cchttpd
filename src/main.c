@@ -31,7 +31,8 @@ usage()
 {
 	extern char *__progname;
 	
-	printf("usage: %s -l ip:port [ -l ip2:port ... ] | -L port [-dDhvV]\n",
+	printf("usage: %s -l ip:port [ -l ip2:port ... ] | <broken:-L port>\n"
+	       "      [-p alternative-htdocs-path] [-dDhvV]\n",
 		__progname);
 	exit(1);
 }
@@ -222,13 +223,14 @@ main(int argc, char *argv[])
 			break;
 		case 'p':
 			/* change default htdocs path */
+			printf("Changing htdocs path to %s\n", optarg);
 			htdocs_path = optarg;
 			break;
 		case 'v':
 			verbose = 1;
 			break;
 		case 'V':
-			printf(	"ccHTTPd " CCHTTPD_VER "\n"
+			printf("ccHTTPd " CCHTTPD_VER "\n"
 				"(C) 2008-2023 Steffen Wendzel <steffen (at) wendzel (dot) de>\n"
 				"https://www.wendzel.de\n");
 			return 1;
