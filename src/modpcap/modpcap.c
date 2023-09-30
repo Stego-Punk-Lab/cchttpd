@@ -385,12 +385,11 @@ mod_reqhandler(int fd_snd, char *query_string)
 	
 	if (query_string) {
 		char *filename;
-		filename = cwd_get_value_from_var(query_string, "file");
-		if (filename) {
-			/* FIXME/TODO: filename allows for a javascript injection! */
-			
-			/* do not allow '/' in the filename */
-			if (strstr(filename, "/") != NULL || strstr(filename, "\\") != NULL) {
+		if ((filename = cwd_get_value_from_var(query_string, "file"))) {
+			/* do not allow '/', '\' and '<' (Javascript) in the filename */
+			if (strstr(filename, "/") != NULL || strstr(filename, "\\") != NULL
+			/* check for HTML < == %3c == %3C to catch javascript */
+			|| strstr(filename, "<") != NULL || strstr(filename, "%3c") != NULL || strstr(filename, "%3C") != NULL) {
 				fprintf(stderr, "requested PCAP filename unsafe (contained '/' or '\\')\n");
 				cwd_print(fd_snd, "request rejected!");
 				free(filename);
