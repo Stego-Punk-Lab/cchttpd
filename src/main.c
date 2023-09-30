@@ -108,7 +108,7 @@ main(int argc, char *argv[])
 	sinf_t *sinf = NULL;
 	sinf_t *cli_sinf = NULL;
 	int peak = 0;
-	int port;
+	int port = 0;
 	char *ip = NULL;
 	int sinf_size = 0;
 	
@@ -144,8 +144,8 @@ main(int argc, char *argv[])
 				exit(1);
 			}
 			
-			if (!port || port > 0xffff) {
-				fprintf(stderr, "need a port!\n");
+			if (!port || port > 0xffff || port < 1) {
+				fprintf(stderr, "port missing or invalid!\n");
 				exit(1);
 			}
 			
@@ -153,13 +153,13 @@ main(int argc, char *argv[])
 				printf("checking ip=%s, port=%i\n", ip, port);
 			
 			if (!sinf) {
-				sinf = (sinf_t *) calloc(1, sizeof(sinf_t));
-				if (!sinf)
+				if (!(sinf = (sinf_t *) calloc(1, sizeof(sinf_t)))) {
 					err(1, "calloc");
+				}
 			} else {
 				size = sizeof(sinf_t);
 				if (!(sinf = (sinf_t *) realloc(sinf, (size + 1) * sizeof(sinf_t))))
-					err(1, "calloc");
+					err(1, "realloc");
 			}
 
 			bzero(&sa, sizeof(sa));
@@ -175,8 +175,10 @@ main(int argc, char *argv[])
 			
 				setsockopt((sinf + size)->fd, SOL_SOCKET, SO_REUSEADDR, &yup, sizeof(yup));
 			
-				if (bind((sinf + size)->fd, (struct sockaddr *)&sa, salen) < 0)
+				if (bind((sinf + size)->fd, (struct sockaddr *)&sa, salen) < 0) {
+					fprintf(stderr, "%s:%i bind error\n", ip, port);
 					err(1, "bind");
+				}
 				
 				if (listen((sinf + size)->fd, MAX_NUM_CONNECTIONS) < 0)
 					err(1, "listen");
@@ -206,6 +208,7 @@ main(int argc, char *argv[])
 				exit(1);
 			}
 			sinf_size++;
+			ip = NULL; port = 0; /* reset for next iteration */
 			break;
 		case 'L':
 			/* listen on all devices */
