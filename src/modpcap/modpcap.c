@@ -436,7 +436,7 @@ mod_reqhandler(int fd_snd, char *query_string)
 					}
 					free(tmp_val);
 				}
-				/* TODO: others is currently not used in the pcap parser! */
+				/* TODO: 'others' is currently not used in the pcap parser! */
 				if ((tmp_val = cwd_get_value_from_var(query_string, "others"))) {
 					if (tmp_val[0] == '1') {
 						filter.others = 1;
