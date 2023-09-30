@@ -564,8 +564,8 @@ prefinish_module_load:
 			if (i_hdr->method & (HTTP_METHOD_GET | HTTP_METHOD_HEAD)) {
 				/* 1st part: for non-cgi */
 				if (o_hdr->is_cmod == 0) {
-					/* Only add the size, if the size is -lt 2 GB */
-					if (st.st_size < 0x7fffffff) {/* 2 GBytes! */
+					/* Only add the size, if the size is -lt 4 GB */
+					if (st.st_size < 0xffffffff) {/* 4 GBytes! */
 						char *buf;
 						
 						CCALLOC(buf, 12)
