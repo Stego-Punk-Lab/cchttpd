@@ -17,11 +17,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-typedef struct {
-	int fd_snd;
-} _cwd_hndl;
-
 /* function prototypes */
-void cwd_print(_cwd_hndl hndl, char *);
+void cwd_print(int fd_snd, char *);
 char *cwd_get_value_from_var(char *, char *);
 

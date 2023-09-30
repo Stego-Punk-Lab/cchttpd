@@ -104,7 +104,7 @@ handle_udp(_udphdr *udphdr, _hdr_descr *hdr_desc)
 }
 
 int
-print_pcap_contents(_cwd_hndl hndl, char *filename, _pcap_filter filter)
+print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 {
 	pcap_t *descr;
 	int pcap_next_ex_result = 0;
@@ -350,7 +350,7 @@ print_pcap_contents(_cwd_hndl hndl, char *filename, _pcap_filter filter)
 				output[28]='\n';
 			}
 			//fprintf(stderr, "INTERMEDIATE SENDING!\n");
-			cwd_print(hndl, output);
+			cwd_print(fd_snd, output);
 			bzero(output, OUTPUT_SIZE);
 			output_len_cur = 0;
 		}
@@ -373,13 +373,13 @@ print_pcap_contents(_cwd_hndl hndl, char *filename, _pcap_filter filter)
 		snprintf(output, 29, "num.packets=%.16d", count);
 		output[28]='\n';
 	}
-	cwd_print(hndl, output);
+	cwd_print(fd_snd, output);
 	free(output);
 	return 0;
 }
 
 void
-mod_reqhandler(_cwd_hndl hndl, char *query_string)
+mod_reqhandler(int fd_snd, char *query_string)
 {
 	_pcap_filter filter;
 	
@@ -392,7 +392,7 @@ mod_reqhandler(_cwd_hndl hndl, char *query_string)
 			/* do not allow '/' in the filename */
 			if (strstr(filename, "/") != NULL || strstr(filename, "\\") != NULL) {
 				fprintf(stderr, "requested PCAP filename unsafe (contained '/' or '\\')\n");
-				cwd_print(hndl, "request rejected!");
+				cwd_print(fd_snd, "request rejected!");
 				free(filename);
 				return;
 			}
@@ -447,15 +447,15 @@ mod_reqhandler(_cwd_hndl hndl, char *query_string)
 				}
 			}
 			
-			if (print_pcap_contents(hndl, filename, filter) != 0) {
-				cwd_print(hndl, ERROR_PCAP_FILE_NOT_OPENED);
+			if (print_pcap_contents(fd_snd, filename, filter) != 0) {
+				cwd_print(fd_snd, ERROR_PCAP_FILE_NOT_OPENED);
 			}
 		} else {
-			cwd_print(hndl, ERROR_PCAP_FILEQUERY_MISSING);
+			cwd_print(fd_snd, ERROR_PCAP_FILEQUERY_MISSING);
 		}
 		free(filename);	
 	} else {
-		cwd_print(hndl, ERROR_PCAP_FILEQUERY_MISSING);
+		cwd_print(fd_snd, ERROR_PCAP_FILEQUERY_MISSING);
 	}
 }
 

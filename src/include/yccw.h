@@ -15,7 +15,7 @@
 
 typedef struct {
 	int (*init) (void);
-	void (*req_handler) (_cwd_hndl, char *);
+	void (*req_handler) (int, char *);
 	/*void (*shutdown) (void);*/
 } yfptrs_t;
  

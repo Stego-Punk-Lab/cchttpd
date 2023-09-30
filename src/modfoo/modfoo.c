@@ -21,27 +21,27 @@ int mod_init(void)
 	return 0;
 }
 
-void mod_reqhandler(_cwd_hndl hndl, char *query_string)
+void mod_reqhandler(int fd_snd, char *query_string)
 {
-	cwd_print(hndl, "<html><body><h1>Hello, C!</h1><p>Text Text Text</p><p>Try to add <code>?name=Max</code> to the URL.</p>");
+	cwd_print(fd_snd, "<html><body><h1>Hello, C!</h1><p>Text Text Text</p><p>Try to add <code>?name=Max</code> to the URL.</p>");
 	if (query_string) {
 		char *name;
 		
-		cwd_print(hndl, "<p>Query-String='");
-		cwd_print(hndl, query_string);
-		cwd_print(hndl, "'</p><hr>");
+		cwd_print(fd_snd, "<p>Query-String='");
+		cwd_print(fd_snd, query_string);
+		cwd_print(fd_snd, "'</p><hr>");
 		
 		/* Example: Request http://127.0.0.1:8080/cgi-bin/modfoo.cm?name=Max to set the variable "name" */
 		name = cwd_get_value_from_var(query_string, "name");
 		if (name) {
-			cwd_print(hndl, "value of variable 'name': ");
-			cwd_print(hndl, name);
-			cwd_print(hndl, "<br>");
+			cwd_print(fd_snd, "value of variable 'name': ");
+			cwd_print(fd_snd, name);
+			cwd_print(fd_snd, "<br>");
 		}
 		free(name);
 	} else {
-		cwd_print(hndl, "query string is empty<br><hr>\n\n");
+		cwd_print(fd_snd, "query string is empty<br><hr>\n\n");
 	}
-	cwd_print(hndl, "</body></html>");
+	cwd_print(fd_snd, "</body></html>");
 }
 

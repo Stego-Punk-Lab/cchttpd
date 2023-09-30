@@ -352,7 +352,8 @@ create_respinf(httphdr_t *i_hdr, httphdr_t *o_hdr)
 			}
 			
 			/* Check if this is a C-Module (we know that the file exists if we are at
-			 * this point of the code). */
+			 * this point of the code). If it is, load it + run its init() function
+			 * (if not already loaded) and also run its handler function. */
 			{
 				int strlen_o_hdr_path = strlen(o_hdr->path);
 				
@@ -362,10 +363,7 @@ create_respinf(httphdr_t *i_hdr, httphdr_t *o_hdr)
 					 * not lets check if this file has chmod +x for its user and
 					 * this file is chown'ed by our effective UID! */
 					if ((st.st_mode & S_IXUSR) && (st.st_uid == geteuid())) {
-						/* okay, check if it is already loaded and load if, if not.
-						 * but don't execute it here since create_respbuf() or maybe
-						 * do_server() will do this. TODO: create_respbuf() OR do_server???
-						 */
+						/* okay, check if it is already loaded and load it, if it isn't. */
 						u_int8_t is_loaded = 0;
 						modlist_t *mptr;
 						void *handle;
@@ -439,7 +437,7 @@ create_respinf(httphdr_t *i_hdr, httphdr_t *o_hdr)
 								break;
 							}
 	
-							yfptrs->req_handler = (void (*) (_cwd_hndl, char *)) dlsym(handle, "mod_reqhandler");
+							yfptrs->req_handler = (void (*) (int, char *)) dlsym(handle, "mod_reqhandler");
 							if (!yfptrs->req_handler) {
 								if (pthread_mutex_unlock(&mutex_cmodload) != 0) {
 									logstr(__FILE__, __LINE__, "unable to do pthread_mutex_unlock()\n");
@@ -510,7 +508,6 @@ prefinish_module_load:
 						/* okay, the module is loaded. execute it and store the output in a
 						 * buffer that we will send back to the client in create_respbuf() */
 						if (is_loaded) {
-							_cwd_hndl hndl;
 							memcpy(o_hdr->cgi_tmpfile_name, "cmod.XXXXXX\0", 11); /* cannot use string directly as it will be modified! */
 							
 							if ((bodyfile = mkstemp(o_hdr->cgi_tmpfile_name)) == -1) {
@@ -522,9 +519,8 @@ prefinish_module_load:
 							}
 							
 							/* execute the request handler routine */
-							o_hdr->cgi_file = bodyfile; //TODO: redundant? // I use it later in server.c!
-							hndl.fd_snd = bodyfile;
-							mptr->fptrs->req_handler(hndl, query_string);							
+							o_hdr->cgi_file = bodyfile;
+							mptr->fptrs->req_handler(bodyfile /* needs file handle */, query_string);							
 							
 							/* VERY important: update the stat information for the rest of the
 							 * code of this functions (to set the date, content-length and the

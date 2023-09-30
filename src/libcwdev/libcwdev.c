@@ -30,11 +30,11 @@ get_openfilelen(FILE *fp)
 }
 
 void
-cwd_print(_cwd_hndl hndl, char *str)
+cwd_print(int fd_snd, char *str)
 {
 	int i;
 	int len = strlen(str);
-	if ((i = (write(hndl.fd_snd, str, len))) == -1) {
+	if ((i = (write(fd_snd, str, len))) == -1) {
 		fprintf(stderr, "write() error in yprint()\n");
 	} else if (i < len) {
 		fprintf(stderr, "write() wrote less than strlen(str) bytes in yprint()\n");
