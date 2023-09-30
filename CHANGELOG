@@ -2,13 +2,13 @@ pcapHTTPd ChangeLog:
 
 ----------------- version 0.x --------------------------------
 
-0.2.3: ???, ??? LOC
+0.2.3: ???, ~3.600 LOC
  - several(!) more bugfixes
  - introduced file size transfer limit of 4GBytes
  - general code clean-up
  - ease CWD API
 
-0.2.2: Wed, Sep-28-2023, 3690 LOC
+0.2.2: Wed, Sep-28-2023, 3.690 LOC
  - serveral bugfixes; made sure code runs on current OS versions
  - created pcap module
  - modified/extended Makefile, configure script etc.
@@ -16,7 +16,7 @@ pcapHTTPd ChangeLog:
  - enable pcapng format parsing
  - sending process of files is now buffered
 
-0.2.0: Sat, Mar-29-2008, 23:31 CET, 2797 LOC
+0.2.0: Sat, Mar-29-2008, 23:31 CET, 2.797 LOC
  - added path protection (GET /../../../etc/passwd and the like)
  - max num of connections (mutex'ed)
  - c module loader now uses mutexes too
