@@ -31,8 +31,7 @@ usage()
 {
 	extern char *__progname;
 	
-	printf("usage: %s -l ip:port [ -l ip2:port ... ] | <broken:-L port>\n"
-	       "      [-p alternative-htdocs-path] [-dDhvV]\n",
+	printf("usage: %s -l ip:port [ -l ip2:port2 ... ] [-p <alternative htdocs path>] [-dDhvV]\n",
 		__progname);
 	exit(1);
 }
@@ -87,8 +86,6 @@ main(int argc, char *argv[])
 {
 	int ch;
 	int lsts = 0;
-	int lsta = 0;
-	int lsta_port;
 	int i;
 	int do_daemon = 0;
 	int connfd;
@@ -97,9 +94,6 @@ main(int argc, char *argv[])
 	thread_inf_t threads[NUM_PARA_CONNS];
 	socklen_t addrlen;
 	int last_used_thread = 0;
-	
-	/* -l ip:port */
-	int size = 0;
 	int salen, sa6len;
 	int yup = 1;
 	struct sockaddr *sa_blank;
@@ -123,9 +117,6 @@ main(int argc, char *argv[])
 			do_daemon = 1;
 			break;
 		case 'l': /* listen on a specific ip:port */
-			if (lsta)
-				usage();
-			
 			lsts = 1;
 			
 			/* sep. ip : port */
@@ -157,8 +148,7 @@ main(int argc, char *argv[])
 					err(1, "calloc");
 				}
 			} else {
-				size = sizeof(sinf_t);
-				if (!(sinf = (sinf_t *) realloc(sinf, (size + 1) * sizeof(sinf_t))))
+				if (!(sinf = (sinf_t *) realloc(sinf, (sinf_size + 1) * sizeof(sinf_t))))
 					err(1, "realloc");
 			}
 
@@ -170,59 +160,45 @@ main(int argc, char *argv[])
 				sa.sin_family = AF_INET;
 				salen = sizeof(struct sockaddr_in);
 			
-				if (((sinf + size)->fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+				if (((sinf + sinf_size)->fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 					err(1, "socket");
 			
-				setsockopt((sinf + size)->fd, SOL_SOCKET, SO_REUSEADDR, &yup, sizeof(yup));
+				setsockopt((sinf + sinf_size)->fd, SOL_SOCKET, SO_REUSEADDR, &yup, sizeof(yup));
 			
-				if (bind((sinf + size)->fd, (struct sockaddr *)&sa, salen) < 0) {
+				if (bind((sinf + sinf_size)->fd, (struct sockaddr *)&sa, salen) < 0) {
 					fprintf(stderr, "%s:%i bind error\n", ip, port);
 					err(1, "bind");
 				}
 				
-				if (listen((sinf + size)->fd, MAX_NUM_CONNECTIONS) < 0)
+				if (listen((sinf + sinf_size)->fd, MAX_NUM_CONNECTIONS) < 0)
 					err(1, "listen");
 				
-				peak = max((sinf + size)->fd, peak);
-				(sinf + size)->fam = AF_INET;
+				peak = max((sinf + sinf_size)->fd, peak);
+				(sinf + sinf_size)->fam = AF_INET;
 			} else if (inet_pton(AF_INET6, ip, &sa6.sin6_addr)) {
 				sa6.sin6_port = htons(port);
 				sa6.sin6_family = AF_INET6;
 				sa6len = sizeof(struct sockaddr_in6);
 			
-				if (((sinf + size)->fd = socket(AF_INET6, SOCK_STREAM, 0)) < 0)
+				if (((sinf + sinf_size)->fd = socket(AF_INET6, SOCK_STREAM, 0)) < 0)
 					err(1, "socket");
 				
-				setsockopt((sinf + size)->fd, SOL_SOCKET, SO_REUSEADDR, &yup, sizeof(yup));
+				setsockopt((sinf + sinf_size)->fd, SOL_SOCKET, SO_REUSEADDR, &yup, sizeof(yup));
 				
-				if (bind((sinf + size)->fd, (struct sockaddr *)&sa6, sa6len) < 0)
+				if (bind((sinf + sinf_size)->fd, (struct sockaddr *)&sa6, sa6len) < 0)
 					err(1, "bind");
 			
-				if (listen((sinf + size)->fd, 5) < 0)
+				if (listen((sinf + sinf_size)->fd, 5) < 0)
 					err(1, "listen");
 				
-				peak = max((sinf + size)->fd, peak);
-				(sinf + size)->fam = AF_INET6;
+				peak = max((sinf + sinf_size)->fd, peak);
+				(sinf + sinf_size)->fam = AF_INET6;
 			} else {
 				fprintf(stderr, "Invalid address: %s\n", ip);
 				exit(1);
 			}
 			sinf_size++;
 			ip = NULL; port = 0; /* reset for next iteration */
-			break;
-		case 'L':
-			/* listen on all devices */
-			fprintf(stderr, "not fully implemented. sorry.\n");
-			exit(1);
-			if (lsts)
-				usage();
-			lsta = 1;
-			lsta_port = atoi(optarg);
-			if (!lsta_port) {
-				fprintf(stderr, "unknown -L port\n");
-				usage();
-				/* NOTREACHED */
-			}
 			break;
 		case 'p':
 			/* change default htdocs path */
@@ -247,21 +223,20 @@ main(int argc, char *argv[])
 		}
 	}
 	
-	if (!lsts && !lsta) {
-		fprintf(stderr, "need -L or -l\n");
+	if (!lsts) {
+		usage();
 		exit(1);
 	}
 	
 	modlist = NULL;
 	
 	/* 41 - 5a = upper case -> + 0x20 = lower case */
-	for(i=0; i<256; i++) {
-		if(i>=0x41 && i<=0x5a)
-			ACSarray[i]=i+0x20;
+	for (i = 0; i < 256; i++) {
+		if (i >= 0x41 && i <= 0x5a)
+			ACSarray[i] = i + 0x20;
 		else
-			ACSarray[i]=i;
+			ACSarray[i] = i;
 	}
-
 	
 	FD_ZERO(&fds);
 	
@@ -323,9 +298,6 @@ main(int argc, char *argv[])
 
 		for (i = 0; i < sinf_size; i++) {
 			if (FD_ISSET((sinf + i)->fd, &fds)) {
-#ifdef DEBUG
-				printf("Accepting TCP connection.\n");
-#endif
 				if ((sinf + i)->fam == AF_INET) {
 					sa_blank = (struct sockaddr *) &sa;
 					addrlen = salen;
@@ -334,28 +306,13 @@ main(int argc, char *argv[])
 					addrlen = sa6len;
 				}
 				
-				/* if max num of connections is reached: continue */
-//				if (num_connections == MAX_NUM_CONNECTIONS)
-//					continue;
-				
 				if ((connfd = accept((sinf + i)->fd, sa_blank, &addrlen)) < 0) {
 					perror("accept");
 				} else {
-//					if (pthread_mutex_lock(&mutex_numconnects) != 0) {
-//						logstr(__FILE__, __LINE__, "unable to do pthread_mutex_lock()");
-//						/* don't stop here, try to serve the request nevertheless ... */
-//					}
-//					num_connections++;
-//					if (pthread_mutex_unlock(&mutex_numconnects) != 0) {
-//						logstr(__FILE__, __LINE__, "fatal error exit: unable to do pthread_mutex_unlock()");
-//						exit(1);
-//					}
-					
 					cli_sinf = (sinf_t *) calloc(1, sizeof(sinf_t));
 					if (!cli_sinf) {
 						syslog(LOG_DAEMON | LOG_NOTICE, "calloc error");
-						/* harakiri */
-						sig_handler(0);
+						sig_handler(0); /* harakiri */
 					}
 					cli_sinf->fd = connfd;
 					cli_sinf->fam = SWIP(i, F4, F6);
@@ -401,5 +358,4 @@ main(int argc, char *argv[])
 	/* NOTREACHED */
 	return 0;
 }
-
 
