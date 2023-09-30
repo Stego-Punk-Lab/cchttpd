@@ -406,7 +406,6 @@ mod_reqhandler(int fd_snd, char *query_string)
 					if (tmp_val[0] == '1') {
 						filter.ip4 = 1;
 					} else {
-						printf("ip4(tmp_val)=%s\n", tmp_val);
 						filter.ip4 = 0;
 					}
 					free(tmp_val);
