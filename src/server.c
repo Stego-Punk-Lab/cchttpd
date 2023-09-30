@@ -15,8 +15,6 @@
 #include <limits.h>
 #include <fcntl.h>
 
-#define MAX_REQHDR_LEN	12288
-
 void free_hdr_contents(httphdr_t, u_int8_t);
 static void kill_connection(server_cb_inf *);
 int send_filebody(int, int, size_t);
