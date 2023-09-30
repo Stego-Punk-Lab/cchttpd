@@ -324,9 +324,9 @@ main(int argc, char *argv[])
 						last_used_thread = 0;
 						
 					/* find a thread (this can cause a while(1) loop if all threads
-					 * are blocked forever. but this should only be the case if there
-					 * will be a bug in some other function (and I _WILL_ fix them if
-					 * there will be some!
+					 * are blocked forever but this should only be the case if there
+					 * will be a bug in some other function (and I will fix such once
+					 * they become known).
 					 */
 					found_a_thread = 0;
 					while (!found_a_thread) {
