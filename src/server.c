@@ -17,10 +17,9 @@
 
 #define MAX_REQHDR_LEN	12288
 
-//extern int num_connections;
-//extern pthread_mutex_t mutex_numconnects;
-
+void free_hdr_contents(httphdr_t, u_int8_t);
 static void kill_connection(server_cb_inf *);
+int send_filebody(int, int, size_t);
 
 #define MAKE_FREE(__x__)	if (__x__ != NULL) { free(__x__); __x__ = NULL; }
 
@@ -86,6 +85,51 @@ free_hdr_contents(httphdr_t hdr, u_int8_t type)
 	MAKE_FREE(hdr.body)
 }
 
+/* send the content of a file, e.g., a GET-requested /index.html, an error page or a tmp output of a C module */
+int
+send_filebody(int sockfd, int filefd, size_t numbytes)
+{
+#ifndef __linux__
+	ssize_t read_cur = 0;
+	size_t read_left = -1;
+	size_t read_next = 0; /* how many bytes to read next */
+	char *buf = NULL;
+
+	if (!(buf = (char *) calloc(FILE_READING_CHUNKSIZE + 1, sizeof(char))))
+		return RET_ERR;
+
+	read_left = numbytes;
+
+	if (numbytes >= 0xffffffff) {
+		fprintf(stderr, "Requested file is TOO BIG (%zu bytes)!\n", numbytes);
+		return RET_ERR;
+	} else {
+		while (read_left) {
+			read_next = ( read_left > FILE_READING_CHUNKSIZE ? FILE_READING_CHUNKSIZE : read_left );
+			if ((read_cur = read(filefd, buf, read_next)) == -1) {
+				perror("read()");
+				logstr(__FILE__, __LINE__, "read() error");
+				return RET_ERR;
+			} else {
+				read_left -= read_cur;
+				if (write(sockfd, buf, read_cur) == -1) {
+					perror("write()");
+					logstr(__FILE__, __LINE__, "write() error");
+					return RET_ERR;
+				}
+			}
+		}
+	}
+#else /* use Linux' sendfile() */
+	if (sendfile(sockfd, filefd, NULL, numbytes) == -1) {
+		perror("sendfile()");
+		logstr(__FILE__, __LINE__, "sendfile() error");
+		return RET_ERR;
+	}
+#endif
+	return RET_OK;
+}
+
 void
 do_server(void *sock_info_p)
 {
@@ -104,14 +148,12 @@ do_server(void *sock_info_p)
 	int yup = 1, nope = 0;
 	const struct timespec tv = {7, 0}; /* connection timeout */
 	uint8_t go_on = 1;
-	#define FILE_READING_CHUNKSIZE 1024*1024*2 /* for reading in files */
 	sinf = (sinf_t *) sock_info_p; /* This is _SOCK_-inf */
 	inf.sinf = sinf; /* this is 'inf' containing everything */
 
 	FD_ZERO(&fds);
 	bzero(&shdr, sizeof(httphdr_t));
 	
-	//TODO FIXME: Clean-up this mess of a function from 2008. Lots of redundancy and crap. kill_connection() etc. should only be called at ONE location.
 	while (go_on) {
 		found = 0;
 		
@@ -183,55 +225,19 @@ do_server(void *sock_info_p)
 						    || error == ERROR_METHOD_NOT_ALLOWED
 						    || error == ERROR_UNDEFINED)
 			) {
-				ssize_t read_cur = 0;
-				size_t read_left = -1;
-				size_t read_next = 0; /* how many bytes to read next */
-			
 				/* if this is a real file, open it first, if this is pipe input from cgi/c-module, use
 				 * it directly */
 				if (shdr.is_cmod) {
-					char *buf;
-					
-					file = shdr.cgi_file;
-					buf = (char *) calloc(FILE_READING_CHUNKSIZE + 1, sizeof(char));
-					if (!buf) {
-						perror("calloc");
-						logstr(__FILE__, __LINE__, "calloc() error");
+					if (send_filebody(sinf->fd, shdr.cgi_file, shdr.filesize) == RET_ERR) {
+						logstr(__FILE__, __LINE__, "send_filebody() returned w/ error");
 						kill_connection(&inf);
 						go_on = 0;
-					} else {
-						//FIXME: SENDING PROCESS IS REDUNDANT CODE TO BELOW CASE
-						//FIXME: incorporate Linux' sendfile here too (as in case below)
-						read_left = shdr.filesize;
-						//TODO: This check also needs to be applied below!
-						if (shdr.filesize >= 0xffffffff) {
-							fprintf(stderr, "Requested file is TOO BIG (%zu bytes)!\n", shdr.filesize);
-							kill_connection(&inf);
-							go_on = 0;
-						} else {
-							while (read_left) {
-								read_next = ( read_left > FILE_READING_CHUNKSIZE ? FILE_READING_CHUNKSIZE : read_left );
-								if ((read_cur = read(file, buf, read_next)) == -1) {
-									perror("read()");
-									logstr(__FILE__, __LINE__, "read() error");
-									kill_connection(&inf);
-									go_on = 0;
-								} else {
-									read_left -= read_cur;
-									if (write(sinf->fd, buf, read_cur) == -1) {
-										perror("write()");
-										logstr(__FILE__, __LINE__, "write() error");
-									}
-								}
-							}
-						}
-						close(file);
-						/* remove tmp file */
-						unlink(shdr.cgi_tmpfile_name);
 					}
+					close(shdr.cgi_file);
+					/* remove tmp file */
+					unlink(shdr.cgi_tmpfile_name);
 				} else {
-					file = open(shdr.abs_path, O_RDONLY);
-					if (file == -1) {
+					if ((file = open(shdr.abs_path, O_RDONLY)) == -1) {
 						logstr(__FILE__, __LINE__, "unable to open a requested file");
 #ifdef DEBUG
 						/* this could be a formatstring attack and is thus only used in DEBUG mode */
@@ -240,37 +246,11 @@ do_server(void *sock_info_p)
 						kill_connection(&inf);
 						go_on = 0;
 					} else {
-#ifdef __linux__
-						sendfile(sinf->fd, file, NULL, shdr.filesize);
-#else
-						char *file_content = NULL;
-						file_content = (char *) calloc(FILE_READING_CHUNKSIZE + 1, sizeof(char));
-						if (!file_content) {
-							perror("calloc");
-							logstr(__FILE__, __LINE__, "calloc() error");
+						if (send_filebody(sinf->fd, file, shdr.filesize) == RET_ERR) {
+							logstr(__FILE__, __LINE__, "send_filebody() returned w/ error");
 							kill_connection(&inf);
 							go_on = 0;
-						} else {
-							/* loop chunk-wise through the file and send chunks too because of memory
-							 * allocation limits! */
-							read_left = shdr.filesize;
-							while (read_left) {
-								read_next = ( read_left > FILE_READING_CHUNKSIZE ? FILE_READING_CHUNKSIZE : read_left );
-								if ((read_cur = read(file, file_content, read_next)) == -1) {
-									perror("read()");
-									logstr(__FILE__, __LINE__, "read() error");
-									kill_connection(&inf);
-									go_on = 0;
-								} else {
-									read_left -= read_cur;
-									if (write(sinf->fd, file_content, read_cur) == -1) {
-										perror("write()");
-										logstr(__FILE__, __LINE__, "write() error");
-									}
-								}
-							}
 						}
-#endif
 						close(file);
 					}
 				}

@@ -58,6 +58,11 @@
 #define DEFAULT_HTDOCS		"/var/www/"
 #define DEFAULT_ERRFILEDIR	"/etc/cchttpd/errfiles/"
 
+#define FILE_READING_CHUNKSIZE 1024*1024*2 /* for reading in files during response handling */
+
+#define RET_ERR			0x10
+#define RET_OK			0x00
+
 #define VERB_OFF		0x00
 #define VERB_NRM		0x01
 #define VERB_DBG		0x02
