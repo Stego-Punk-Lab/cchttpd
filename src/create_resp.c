@@ -130,8 +130,7 @@ chk_path(char *path)
 			for (strlen_path = 0; path[strlen_path] != '\0'; strlen_path++)
 				;
 			
-			tmp_path = (char *) calloc(strlen_path + 1, sizeof(char));
-			if (!tmp_path) {
+			if (!(tmp_path = (char *) calloc(strlen_path + 1, sizeof(char)))) {
 				logstr(__FILE__, __LINE__, "calloc() mem error\n");
 				return ERROR_MEMALLOC;
 			}
@@ -741,8 +740,7 @@ create_respbuf(httphdr_t *shdr, int error)
 	hdrlen += 2; /* trailing CRLF */
 	
 	/* create the hdr */	
-	res = (char *) calloc(hdrlen + 1, sizeof(char));
-	if (!res) {
+	if (!(res = (char *) calloc(hdrlen + 1, sizeof(char)))) {
 		perror("calloc");
 		return NULL;
 	}
