@@ -22,7 +22,7 @@
 
 static void kill_connection(server_cb_inf *);
 
-#define MAKE_FREE(x)	if (x != NULL) { free(x); x=NULL; }
+#define MAKE_FREE(__x__)	if (__x__ != NULL) { free(__x__); __x__ = NULL; }
 
 void
 free_hdr_contents(httphdr_t hdr, u_int8_t type)
@@ -95,26 +95,20 @@ do_server(void *sock_info_p)
 	server_cb_inf inf;
 	int found;
 	int i;
-	int num; /* # of recv() bytes */
+	int num_recv_bytes_from_client;
 	char *sbuf;
 	int error;
 	int file;
 	httphdr_t shdr;
 	fd_set fds;
 	int yup = 1, nope = 0;
-	/* connection timeout */
-	const struct timespec tv = {7, 0};
+	const struct timespec tv = {7, 0}; /* connection timeout */
 	uint8_t go_on = 1;
-	/* for sending files */
-	#define FILE_READING_CHUNKSIZE 1024*1024*2
-	
-	/* This is _SOCK_-inf */
-	sinf = (sinf_t *) sock_info_p;
-	/* This is 'inf' containing everything */
-	inf.sinf = sinf;
+	#define FILE_READING_CHUNKSIZE 1024*1024*2 /* for reading in files */
+	sinf = (sinf_t *) sock_info_p; /* This is _SOCK_-inf */
+	inf.sinf = sinf; /* this is 'inf' containing everything */
 
 	FD_ZERO(&fds);
-	
 	bzero(&shdr, sizeof(httphdr_t));
 	
 	//TODO FIXME: Clean-up this mess of a function from 2008. Lots of redundancy and crap. kill_connection() etc. should only be called at ONE location.
@@ -122,7 +116,6 @@ do_server(void *sock_info_p)
 		found = 0;
 		
 		FD_SET(sinf->fd, &fds);
-		
 		if (pselect(sinf->fd + 1, &fds, NULL, NULL, &tv, NULL) == -1) {
 			logstr(__FILE__, __LINE__, "select returned with an error.");
 			kill_connection(&inf);
@@ -131,12 +124,12 @@ do_server(void *sock_info_p)
 	
 		/* if max. len of hdr data we can still request is zero (or error occured) ...
 		 * OR: if the select timeout was reached and there still is no data: kill connection. */
-		if ((num = recv(sinf->fd, rbuf + len, MAX_REQHDR_LEN - len, MSG_DONTWAIT)) <= 0) {
+		if ((num_recv_bytes_from_client = recv(sinf->fd, rbuf + len, MAX_REQHDR_LEN - len, MSG_DONTWAIT)) <= 0) {
 			/* kill connection if the client sends more bytes than allowed */
 			kill_connection(&inf);
 			go_on = 0;
 		}
-		len += num;
+		len += num_recv_bytes_from_client;
 		
 		/* did we already receive '\r\n\r\n'? I think parsing from the end of the string
 		 * to its beginning should be the most performant solution since there is no HTTP
@@ -146,16 +139,14 @@ do_server(void *sock_info_p)
 			if (rbuf[i-3] == '\r' && rbuf[i-2] == '\n' && rbuf[i-1] == '\r' && rbuf[i] == '\n')
 				found = 1; /* break */
 		}
-		if (found) {
+		if (found) { /* now proceed */
 #ifdef DEBUG
 			printf("string from client '%s'\n", rbuf);
 #endif
-			/* now proceed */
-			
-			/* Ignore trailing CRLF to be rfc2616 conform */
+			/* Ignore trailing CRLF to be conform w/ RFC 2616 */
 			for (i = 0; rbuf[i] == '\r' && rbuf[i+1] == '\n'; i += 2)
 				;
-			/* get the http request hdr in a struct */
+			/* get the HTTP request header in a struct */
 			inf.hdr = parse_reqhdr(rbuf + i);
 			error = create_respinf(inf.hdr, &shdr);
 			sbuf = create_respbuf(&shdr, error);
@@ -172,16 +163,26 @@ do_server(void *sock_info_p)
 				}
 				free(sbuf);
 				sbuf = NULL;
+			} else {
+				fprintf(stderr, "Empty response buffer.\n");
+				logstr(__FILE__, __LINE__, "Empty response buffer");
+				kill_connection(&inf);
+				go_on = 0;
+				/* try continuing */
+			}
+			if (inf.hdr->method == HTTP_METHOD_HEAD) {
+				/* just do the clean-up */
+				unlink(shdr.cgi_tmpfile_name);
 			}
 			/* if there was no/an error and an GET request (and NO c-module): send the file. */
-			if ((inf.hdr->method == HTTP_METHOD_GET || error) &&
-					/* no error or error-page is needed! (NOT ERROR_MEM????) */
+			//FIXME: above comment mentions c-module but below, C-module is handled!
+			else if ((inf.hdr->method == HTTP_METHOD_GET || error) &&
+					/* no error -or- error-page is needed! */
 					(error == 0 || error == ERROR_FORBIDDEN
 						    || error == ERROR_404
 						    || error == ERROR_METHOD_NOT_ALLOWED
 						    || error == ERROR_UNDEFINED)
 			) {
-			
 				ssize_t read_cur = 0;
 				size_t read_left = -1;
 				size_t read_next = 0; /* how many bytes to read next */
@@ -224,7 +225,6 @@ do_server(void *sock_info_p)
 								}
 							}
 						}
-						
 						close(file);
 						/* remove tmp file */
 						unlink(shdr.cgi_tmpfile_name);

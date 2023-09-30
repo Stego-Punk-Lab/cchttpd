@@ -62,7 +62,7 @@ set_errpage(httphdr_t *o_hdr, int error)
 	CCALLOC(o_hdr->abs_path, len)
 	CCALLOC(o_hdr->path, len)
 	
-	switch(error) {
+	switch (error) {
 	case ERROR_FORBIDDEN: errpg = "/403"; break;
 	case ERROR_404: errpg = "/404"; break;
 	case ERROR_BADREQUEST: errpg = "/400"; break;
@@ -522,7 +522,7 @@ prefinish_module_load:
 							}
 							
 							/* execute the request handler routine */
-							o_hdr->cgi_file = bodyfile; //TODO: redundant?
+							o_hdr->cgi_file = bodyfile; //TODO: redundant? // I use it later in server.c!
 							hndl.fd_snd = bodyfile;
 							mptr->fptrs->req_handler(hndl, query_string);							
 							
@@ -747,6 +747,7 @@ create_respbuf(httphdr_t *shdr, int error)
 	/* create the hdr */	
 	res = (char *) calloc(hdrlen + 1, sizeof(char));
 	if (!res) {
+		perror("calloc");
 		return NULL;
 	}
 	
