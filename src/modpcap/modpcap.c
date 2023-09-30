@@ -36,15 +36,15 @@ get_framelen(int datalink)
 {
 	int framelen;
 
-	switch(datalink){
+	switch (datalink) {
 	case DLT_NULL:
-		framelen=0;
+		framelen = 0;
 		break;
 	case DLT_LOOP:
-		framelen=4;
+		framelen = 4;
 		break;
 	case DLT_EN10MB:
-		framelen=sizeof(struct ether_header);
+		framelen = sizeof(struct ether_header);
 		break;
 	case DLT_IEEE802:
 		framelen = 22;
@@ -55,22 +55,22 @@ get_framelen(int datalink)
 		break;
 #endif
 	case DLT_SLIP:
-		framelen=24;
+		framelen = 24;
 		break;
 	case DLT_PPP:
-		framelen=24;
+		framelen = 24;
 		break;
 	case DLT_FDDI:
-		framelen=2+1+1+6+6;	/* 16; not tested! */
+		framelen = 2 + 1 + 1 + 6 + 6; /* 16; not tested! */
 		break;
-#ifdef DLT_IEEE802_11		/* OpenBSD >= 3.4 */
+#ifdef DLT_IEEE802_11 /* OpenBSD >= 3.4 */
 	case DLT_IEEE802_11:
 #else	/* ifdef DLT_IEEE802 */	/* OpenBSD <= 3.3 -- I wrote this code in 2008 :) */
 	case DLT_IEEE802:
 #endif
-		framelen=2+2+6+6+6+2+6;	/* 30; not tested! */
+		framelen = 2 + 2 + 6 + 6 + 6 + 2 + 6; /* 30; not tested! */
 		break;
-	case DLT_ENC:		/* Todo: IPSec */
+	case DLT_ENC: /* TODO: IPSec */
 	default:
 		fprintf(stderr, "datalink type %i not supported.\n", datalink);
 		return 0;
@@ -80,27 +80,6 @@ get_framelen(int datalink)
 #endif
 	return framelen;
 }
-
-/*char *
-push(int *realloc_len, char *output, char *string_to_add)
-{
-	int add_len = strlen(string_to_add);
-
-	if (output == NULL) {
-		fprintf(stderr, "output==NULL in push()\n");
-		return NULL;
-	}
-
-	if (!(output = realloc(output, *realloc_len + add_len + 1))) {
-		fprintf(stderr, "push():realloc(): requested %d bytes\n", *realloc_len + add_len + 1);
-		perror("push():realloc()");
-		return NULL;
-	}
-	bzero(output + *realloc_len, add_len + 1);
-	memcpy(output + *realloc_len, string_to_add, add_len);
-	*realloc_len += add_len;
-	return output;
-}*/
 
 void
 handle_tcp(_tcphdr *tcphdr, _hdr_descr *hdr_desc)
@@ -127,20 +106,20 @@ handle_udp(_udphdr *udphdr, _hdr_descr *hdr_desc)
 int
 print_pcap_contents(_cwd_hndl hndl, char *filename, _pcap_filter filter)
 {
-	pcap_t         *descr;
+	pcap_t *descr;
 	int pcap_next_ex_result = 0;
-	const u_char   *packet;
+	const u_char *packet;
 	struct pcap_pkthdr *hdr;
-	_iphdr         *iphdr;
-	_ip6hdr        *ip6hdr;
-	_tcphdr        *tcphdr;
-	_udphdr	       *udphdr;
-	int             datalink;
-	int             framelen;
-	int             count = 0;
+	_iphdr *iphdr;
+	_ip6hdr*ip6hdr;
+	_tcphdr*tcphdr;
+	_udphdr *udphdr;
+	int datalink;
+	int framelen;
+	int count = 0;
 	struct ether_header *eh;
 	char errbuf[PCAP_ERRBUF_SIZE];
-	char            header[] = {
+	char header[] = {
 		"num.packets=_________________\n"
 		"timestamp;caplen;wirelen;ethertype;l3prot;"
 		"ip.src;ip.dst;ip.v;ip.hl;ip.tos;ip.id;ip.off;ip.ttl;ip.sum_raw;"
@@ -351,14 +330,14 @@ print_pcap_contents(_cwd_hndl hndl, char *filename, _pcap_filter filter)
 			/* meta + frame */
 			hdr->ts.tv_sec, hdr->ts.tv_usec, hdr->caplen, hdr->len,
 			/* ethernet and proto types */
-		    	hdr_desc.str_ether_type, (hdr_desc.str_l3_proto == NULL ? "" : hdr_desc.str_l3_proto),
-		    	/* ipv4 */
+			hdr_desc.str_ether_type, (hdr_desc.str_l3_proto == NULL ? "" : hdr_desc.str_l3_proto),
+			/* ipv4 */
 			(iphdr != NULL ? inet_ntoa(iphdr->ip_src) : ""), (iphdr != NULL ? inet_ntoa(iphdr->ip_dst) : ""), hdr_desc.str_ip_v, hdr_desc.str_ip_hl, hdr_desc.str_ip_tos, hdr_desc.str_ip_id, hdr_desc.str_ip_off, hdr_desc.str_ip_ttl, hdr_desc.str_ip_sum,
 			/* ipv6 */
 			hdr_desc.str_ip6_src, hdr_desc.str_ip6_dst,
 			/* tcp */
-		    	hdr_desc.str_tcp_sport, hdr_desc.str_tcp_dport, hdr_desc.str_tcp_seq, hdr_desc.str_tcp_ack, hdr_desc.str_tcp_off, hdr_desc.str_tcp_flags, hdr_desc.str_tcp_win, hdr_desc.str_tcp_urp,
-		    	/* udp */
+			hdr_desc.str_tcp_sport, hdr_desc.str_tcp_dport, hdr_desc.str_tcp_seq, hdr_desc.str_tcp_ack, hdr_desc.str_tcp_off, hdr_desc.str_tcp_flags, hdr_desc.str_tcp_win, hdr_desc.str_tcp_urp,
+			/* udp */
 			hdr_desc.str_udp_sport, hdr_desc.str_udp_dport, hdr_desc.str_udp_len, hdr_desc.str_udp_cksum);
 		
 		len_new_pkt_str = strlen(new_pkt_str);
@@ -381,9 +360,9 @@ print_pcap_contents(_cwd_hndl hndl, char *filename, _pcap_filter filter)
 		output_len_whole += len_new_pkt_str;
 	}
 	/* check for some errors while parsing:
-         * 0: pkt read from live cap. but timeout;
-         * PCAP_ERROR_BREAK: no more packets;
-         * PCAP_ERROR_NOT_ACTIVATED and PCAP_ERROR can also occur */
+	 * 0: pkt read from live cap. but timeout;
+	 * PCAP_ERROR_BREAK: no more packets;
+	 * PCAP_ERROR_NOT_ACTIVATED and PCAP_ERROR can also occur */
 	if (pcap_next_ex_result == PCAP_ERROR_NOT_ACTIVATED || pcap_next_ex_result == PCAP_ERROR) {
 		fprintf(stderr, "pcap parsing error (packet!=1 returned by pcap_next_ex())!\n");
 	} else if (pcap_next_ex_result == PCAP_ERROR_BREAK) {
@@ -399,12 +378,6 @@ print_pcap_contents(_cwd_hndl hndl, char *filename, _pcap_filter filter)
 	return 0;
 }
 
-
-
-// /home/wendzel/git/VL_NetSec/uebungen/2021/Blatt1/capture.pcap
-// /home/wendzel/git/papers/002_Unfinished/TDSC_DYST/recordings/CS_home_idle_saturday_away.pcap
-// /home/wendzel/git/projects/old_projects/xyriahttpd/ip6.pcap
-
 void
 mod_reqhandler(_cwd_hndl hndl, char *query_string)
 {
@@ -414,12 +387,11 @@ mod_reqhandler(_cwd_hndl hndl, char *query_string)
 		char *filename;
 		filename = cwd_get_value_from_var(query_string, "file");
 		if (filename) {
-			/* FIXME: filename allows for a javascript injection! */
-			// (TODO)
+			/* FIXME/TODO: filename allows for a javascript injection! */
 			
 			/* do not allow '/' in the filename */
 			if (strstr(filename, "/") != NULL || strstr(filename, "\\") != NULL) {
-				fprintf(stderr, "requested PCAP filename unsafe (contained / or \\)\n");
+				fprintf(stderr, "requested PCAP filename unsafe (contained '/' or '\\')\n");
 				cwd_print(hndl, "request rejected!");
 				free(filename);
 				return;
