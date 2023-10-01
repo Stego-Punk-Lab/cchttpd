@@ -1,12 +1,8 @@
 # ccHTTPd
 
-**Note:** *ccHTTPd is an experimental code for research groups and *not* tailored for production environments. The code is still immature and needs lots of additional security and reliability features before you can use it.*
+**ccHTTPd** is **a web server that can run C modules** and can optionally **serve content of PCAP files** (traffic recordings). This means that the server excutes C modules like other servers execute PHP code. Therefore, the server **comes with a library called *libcwdev* (C Web Development Library)**.
 
-------
-
-ccHTTPd is a web server that can run C modules and can optionally serve content of PCAP files. This means that the server excutes C modules like other servers execute PHP code. Therefore, ccHTTPd comes with a library called *libcwdev* (C Web Development Library).
-
-ccHTTPd started as a student project in 2008 and was revived in 2023 when a BSD-licensed service was required for providing PCAP traffic file content easily over the web.
+The project started as a student project in 2008 and was revived in 2023 when a BSD-licensed service was required for providing PCAP traffic file content easily over the web. The server still needs lots of work but is ready for testing.
 
 ### Why?
 
