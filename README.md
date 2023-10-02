@@ -91,3 +91,12 @@ This is to be done but *src/modfoo/modfoo.c* is rather self-explanatory.
 
 The pcap-ng file format is supported only on Linux so far.
 
+### Research
+
+ccHTTPd with PCAP service is used as part of our steganography/network security research. Check out our other repositories:
+
+- [Steffen's network covert channel tools](https://github.com/cdpxe/NetworkCovertChannels)
+- [Steffen's network steganography online class](https://github.com/cdpxe/Network-Covert-Channels-A-University-level-Course)
+- [Our scientific papers](https://wendzel.de/pub/) (new stego-punk website will come in the next months)
+
+
