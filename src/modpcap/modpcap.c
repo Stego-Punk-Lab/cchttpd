@@ -215,9 +215,15 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 
 			switch (iphdr->ip_p) {
 			case 1:
+				if (filter.icmp4 == 0) {
+					continue; /* skip */
+				}
 				hdr_desc.str_l3_proto = "icmp";
 				break;
 			case 2:
+				if (filter.others == 0) {
+					continue; /* skip */
+				}
 				hdr_desc.str_l3_proto = "igmp";
 				break;
 			case 6:
@@ -239,6 +245,9 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 				handle_udp(udphdr, &hdr_desc);
 				break;
 			default:
+				if (filter.others == 0) {
+					continue; /* skip */
+				}
 				/* other protocol: TODO: use numeric value */
 				hdr_desc.str_l3_proto = "other";
 				printf("%hi\n", iphdr->ip_p);
@@ -306,9 +315,15 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 				hdr_desc.str_l3_proto = "icmp6";
 				break;
 			case 59:
+				if (filter.others == 0) {
+					continue; /* skip */
+				}
 				hdr_desc.str_l3_proto = "ip6-no-next-hdr"; /* IPv6-NoNxt */
 				break;
 			case 60:
+				if (filter.others == 0) {
+					continue; /* skip */
+				}
 				hdr_desc.str_l3_proto = "ip6-dst-opts";
 				break;
 			default:
