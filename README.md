@@ -83,6 +83,8 @@ timestamp;caplen;wirelen;ethertype;l3prot;ip.src;ip.dst;ip.v;ip.hl;ip.tos;ip.id;
 1694626462.161637;338;338;ip4;udp;127.0.0.53;127.0.0.53;4;5;0;42993;64;1;52104;;;;;;;;;;;53;34003;304;65399
 ```
 
+Currently supported filters are: *ip4*, *ip6*, *icmp4*, *icmp6*, *tcp*, *udp*, and *others*. Use `others' to, e.g., filter out ARP packets.
+
 ### Development Documentation for C Modules
 
 This is to be done but *src/modfoo/modfoo.c* is rather self-explanatory.
