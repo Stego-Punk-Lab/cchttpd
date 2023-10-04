@@ -83,7 +83,7 @@ timestamp;caplen;wirelen;ethertype;l3prot;ip.src;ip.dst;ip.v;ip.hl;ip.tos;ip.id;
 1694626462.161637;338;338;ip4;udp;127.0.0.53;127.0.0.53;4;5;0;42993;64;1;52104;;;;;;;;;;;53;34003;304;65399
 ```
 
-Currently supported filters are: *ip4*, *ip6*, *icmp4*, *icmp6*, *tcp*, *udp*, and *others*. Use `others' to, e.g., filter out ARP packets. Note that if you set *ip=0* or *ip6=0*, ICMP, UDP, TCP etc. included in these protocols are filterted, even if explicitly included through, e.g. *tcp=1*.
+Currently supported filters are: `ip4`, `ip6`, `icmp4`, `icmp6`, `tcp`, `udp`, and `others`. Use `others=0` to, e.g., filter out ARP packets. Note that if you set `ip=0` and/or `ip6=0`, it follows that even if an IPv4 or IPv6 packet contains ICMP(v6), UDP, TCP etc., these will be filterted out even if explicitly included through, e.g., `tcp=1`.
 
 ### Development Documentation for C Modules
 
