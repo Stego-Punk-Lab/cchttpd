@@ -7,6 +7,7 @@ pcapHTTPd ChangeLog:
  - introduced file size transfer limit of 4GBytes
  - general code clean-up
  - ease CWD API
+ - some more filters
 
 0.2.2: Wed, Sep-28-2023, 3.690 LOC
  - serveral bugfixes; made sure code runs on current OS versions
