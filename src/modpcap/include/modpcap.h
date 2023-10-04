@@ -139,7 +139,9 @@
 
 typedef struct {
 	u_int8_t	ip4:1;
+	u_int8_t	icmp4:1;
 	u_int8_t	ip6:1;
+	u_int8_t	icmp6:1;
 	u_int8_t	udp:1;
 	u_int8_t	tcp:1;
 	u_int8_t	others:1;

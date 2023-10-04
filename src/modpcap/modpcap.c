@@ -269,9 +269,16 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 			}
 			switch (ip6hdr->ip6_ctlun.ip6_un1.ip6_un1_nxt) {
 			case 1:
+				if (filter.icmp4 == 0) {
+					continue; /* skip */
+				}
 				hdr_desc.str_l3_proto = "icmp";
 				break;
 			case 2:
+				if (filter.others == 0) {
+					continue; /* skip */
+				}
+
 				hdr_desc.str_l3_proto = "igmp";
 				break;
 			case 6:
@@ -293,26 +300,37 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 				handle_udp(udphdr, &hdr_desc);
 				break;
 			case 58:
+				if (filter.icmp6 == 0) {
+					continue; /* skip */
+				}
 				hdr_desc.str_l3_proto = "icmp6";
 				break;
 			case 59:
-				hdr_desc.str_l3_proto = ""; /* IPv6-NoNxt */
+				hdr_desc.str_l3_proto = "ip6-no-next-hdr"; /* IPv6-NoNxt */
 				break;
 			case 60:
 				hdr_desc.str_l3_proto = "ip6-dst-opts";
 				break;
 			default:
-				/* other protocol: TODO: use numeric value */
+				if (filter.others == 0) {
+					continue; /* skip */
+				}
 				hdr_desc.str_l3_proto = "other";
 				/*printf("%hi (pkt no %i)\n", ip6hdr->ip6_ctlun.ip6_un1.ip6_un1_nxt, count);*/
 				break;
 			}
 			break;
 		case ETHERTYPE_ARP:
+			if (filter.others == 0)
+				continue; /* skip */
+			
 			hdr_desc.str_ether_type = "arp";
 			break;
 		default:
 			/* other ether type: TODO: use the numeric value */
+			if (filter.others == 0)
+				continue; /* skip */
+			
 			hdr_desc.str_ether_type = "other";
 #ifdef DEBUG
 			printf("ether_type=%hx\n", htons(eh->ether_type));
@@ -400,7 +418,7 @@ mod_reqhandler(int fd_snd, char *query_string)
 			{
 				char *tmp_val;
 				
-				filter.ip4 = filter.ip6 = filter.tcp = filter.udp = filter.others = 1;
+				filter.ip4 = filter.icmp4 = filter.ip6 = filter.icmp6 = filter.tcp = filter.udp = filter.others = 1;
 				
 				if ((tmp_val = cwd_get_value_from_var(query_string, "ip4"))) {
 					if (tmp_val[0] == '1') {
@@ -410,11 +428,27 @@ mod_reqhandler(int fd_snd, char *query_string)
 					}
 					free(tmp_val);
 				}
+				if ((tmp_val = cwd_get_value_from_var(query_string, "icmp4"))) {
+					if (tmp_val[0] == '1') {
+						filter.icmp4 = 1;
+					} else {
+						filter.icmp4 = 0;
+					}
+					free(tmp_val);
+				}
 				if ((tmp_val = cwd_get_value_from_var(query_string, "ip6"))) {
 					if (tmp_val[0] == '1') {
 						filter.ip6 = 1;
 					} else {
 						filter.ip6 = 0;
+					}
+					free(tmp_val);
+				}
+				if ((tmp_val = cwd_get_value_from_var(query_string, "icmp6"))) {
+					if (tmp_val[0] == '1') {
+						filter.icmp6 = 1;
+					} else {
+						filter.icmp6 = 0;
 					}
 					free(tmp_val);
 				}
@@ -434,7 +468,6 @@ mod_reqhandler(int fd_snd, char *query_string)
 					}
 					free(tmp_val);
 				}
-				/* TODO: 'others' is currently not used in the pcap parser! */
 				if ((tmp_val = cwd_get_value_from_var(query_string, "others"))) {
 					if (tmp_val[0] == '1') {
 						filter.others = 1;
