@@ -145,6 +145,8 @@ typedef struct {
 	u_int8_t	udp:1;
 	u_int8_t	tcp:1;
 	u_int8_t	others:1;
+#define MODPCAP_FILTER_LIMIT_MAX	0x7fffffff
+	int		limit;
 } _pcap_filter;
 
 /* Imported from OpenBSD sys/netinet/ip.h; modified for ccHTTPd */

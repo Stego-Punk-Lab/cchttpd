@@ -171,7 +171,7 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 	output_len_whole = output_len_cur = strlen(header);
 	
 	/* we keep the result returned by pcap_next_ex() to check it later */
-	while ((pcap_next_ex_result = pcap_next_ex(descr, &hdr, &packet /* packet data */)) == 1) {
+	while ((pcap_next_ex_result = pcap_next_ex(descr, &hdr, &packet /* packet data */)) == 1 && count < filter.limit) {
 		count++;
 		/* start a new packet w/ empty string */
 		bzero(new_pkt_str, sizeof(new_pkt_str));
@@ -434,6 +434,7 @@ mod_reqhandler(int fd_snd, char *query_string)
 				char *tmp_val;
 				
 				filter.ip4 = filter.icmp4 = filter.ip6 = filter.icmp6 = filter.tcp = filter.udp = filter.others = 1;
+				filter.limit = MODPCAP_FILTER_LIMIT_MAX;
 				
 				if ((tmp_val = cwd_get_value_from_var(query_string, "ip4"))) {
 					if (tmp_val[0] == '1') {
@@ -488,6 +489,16 @@ mod_reqhandler(int fd_snd, char *query_string)
 						filter.others = 1;
 					} else {
 						filter.others = 0;
+					}
+					free(tmp_val);
+				}
+				if ((tmp_val = cwd_get_value_from_var(query_string, "limit"))) {
+					filter.limit = atoi(tmp_val);
+					if (filter.limit <= 0) {
+						filter.limit = MODPCAP_FILTER_LIMIT_MAX; /* set to max. value */
+						fprintf(stderr,
+							"invalid 'limit' value (%i) from client's URL parameter.\n",
+							filter.limit);
 					}
 					free(tmp_val);
 				}

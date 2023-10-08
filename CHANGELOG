@@ -8,6 +8,7 @@ pcapHTTPd ChangeLog:
  - general code clean-up
  - ease CWD API
  - some more filters
+ - modpcap: added "limit=x" URL parameter
 
 0.2.2: Wed, Sep-28-2023, 3.690 LOC
  - serveral bugfixes; made sure code runs on current OS versions

@@ -85,6 +85,12 @@ timestamp;caplen;wirelen;ethertype;l3prot;ip.src;ip.dst;ip.v;ip.hl;ip.tos;ip.id;
 
 Currently supported filters are: `ip4`, `ip6`, `icmp4`, `icmp6`, `tcp`, `udp`, and `others`. Use `others=0` to, e.g., filter out ARP packets. Note that if you set `ip=0` and/or `ip6=0`, it follows that even if an IPv4 or IPv6 packet contains ICMP(v6), UDP, TCP etc., these will be filterted out even if explicitly included through, e.g., `tcp=1`.
 
+If you have a larger pcap file and want to test your filter, you might only want to parse the first 1,000 packets or so. In this case, use `limit=1000` as an URL parameter:
+
+```
+$ GET 'http://127.0.0.1:8080/cgi-bin/modpcap.cm?file=ip6.pcap&limit=3'
+```
+
 ### Development Documentation for C Modules
 
 This is to be done but *src/modfoo/modfoo.c* is rather self-explanatory.
