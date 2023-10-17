@@ -152,7 +152,7 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 
 	if ((descr = pcap_open_offline(filename_full_path, errbuf)) == NULL) {
 #ifdef DEBUG
-		fprintf(stderr, "pcap file: '%s', errbuf=%s\n", filename_full_path, errbuf);
+		fprintf(stderr, "filename: '%s', pcap file: '%s', errbuf='%s'\n", filename, filename_full_path, errbuf);
 #endif
 		free(filename_full_path);
 		free(output);
@@ -507,10 +507,10 @@ mod_reqhandler(int fd_snd, char *query_string)
 			if (print_pcap_contents(fd_snd, filename, filter) != 0) {
 				cwd_print(fd_snd, ERROR_PCAP_FILE_NOT_OPENED);
 			}
+			free(filename);
 		} else {
 			cwd_print(fd_snd, ERROR_PCAP_FILEQUERY_MISSING);
 		}
-		free(filename);	
 	} else {
 		cwd_print(fd_snd, ERROR_PCAP_FILEQUERY_MISSING);
 	}
