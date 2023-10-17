@@ -82,7 +82,7 @@ cwd_get_value_from_var(char *query_in, char *varname)
 				break;
 			
 			/*fprintf(stderr, "    l2.token='%s'\n", subtoken);*/
-			if ((value = calloc(sizeof(char), strlen(subtoken))) == NULL) {
+			if ((value = calloc(sizeof(char), strlen(subtoken) + 1)) == NULL) {
 				perror("calloc");
 				free(query);
 				return NULL;
