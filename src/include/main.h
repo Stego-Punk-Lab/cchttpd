@@ -68,8 +68,8 @@
 #define VERB_NRM		0x01
 #define VERB_DBG		0x02
 
-#define MAX_NUM_CONNECTIONS	0x7f	/* num of acceptable connections */
-#define NUM_PARA_CONNS		0x7f	/* num of threads */
+#define MAX_NUM_CONNECTIONS	0x30	/* num of acceptable connections */
+#define NUM_PARA_CONNS		0x30	/* num of threads */
 
 #define max(a, b)		(a > b ? a : b)
 

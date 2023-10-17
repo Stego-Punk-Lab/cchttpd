@@ -9,6 +9,8 @@ pcapHTTPd ChangeLog:
  - ease CWD API
  - some more filters
  - modpcap: added "limit=x" URL parameter
+ - reduce number of max. parallel connections to 0x30 so that we do not
+   end up with "too many open files" error when calling pipe().
 
 0.2.2: Wed, Sep-28-2023, 3.690 LOC
  - serveral bugfixes; made sure code runs on current OS versions
