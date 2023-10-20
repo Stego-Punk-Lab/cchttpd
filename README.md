@@ -72,7 +72,7 @@ $ sudo make install_modpcap
 
 Finally, visit [http://127.0.0.1:8080/cgi-bin/modpcap.cm?file=ip6.pcap](http://127.0.0.1:8080/cgi-bin/modpcap.cm?file=ip6.pcap) to see if it works. It should provide you with the packet data for the pcap file *ip6.pcap*, located in */var/www/pcaps*. Place your *.pcap* files in */var/www/pcaps/* and you should be able to use them.
 
-**Filters:** Assume you want only IPv4 but no IPv6 packets, and only UDP, but no TCP packets, you could run a simple filter through the URL, where you can use things like `ip=0` or `tcp=1` to remove/include specific protocols:
+**Filters:** Per default, all packets are returned by `modpcap`. However, there is a way to explicitly *exclude* certain types of packets. Assume you want only IPv4 but no IPv6 packets, and only UDP, but no TCP packets, you could run a simple filter through the URL, where you can use things like `ip=0` or `tcp=1` to remove/include specific protocols:
 
 ```
 $ GET 'http://127.0.0.1:8080/cgi-bin/modpcap.cm?file=ip6.pcap&ip6=0&tcp=0&ip4=1&udp=1'
@@ -83,7 +83,7 @@ timestamp;caplen;wirelen;ethertype;l3prot;ip.src;ip.dst;ip.v;ip.hl;ip.tos;ip.id;
 1694626462.161637;338;338;ip4;udp;127.0.0.53;127.0.0.53;4;5;0;42993;64;1;52104;;;;;;;;;;;53;34003;304;65399
 ```
 
-Currently supported filters are: `ip4`, `ip6`, `icmp4`, `icmp6`, `tcp`, `udp`, and `others`. Use `others=0` to, e.g., filter out ARP packets. Note that if you set `ip=0` and/or `ip6=0`, it follows that even if an IPv4 or IPv6 packet contains ICMP(v6), UDP, TCP etc., these will be filterted out even if explicitly included through, e.g., `tcp=1`.
+Currently supported filters are: `ip4`, `ip6`, `icmp4`, `icmp6`, `tcp`, `udp`, `dns`, and `others`. Use `others=0` to, e.g., filter out ARP packets. Note that if you set `ip=0` and/or `ip6=0`, it follows that even if an IPv4 or IPv6 packet contains ICMP(v6), UDP, TCP etc., these will be filterted out even if explicitly included through, e.g., `tcp=1`.
 
 If you have a larger pcap file and want to test your filter, you might only want to parse the first 1,000 packets or so. In this case, use `limit=1000` as an URL parameter:
 

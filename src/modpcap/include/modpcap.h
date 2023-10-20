@@ -108,6 +108,87 @@
  *
  *	@(#)udp.h	8.1 (Berkeley) 6/10/93
  */
+/* More content is based on OpenBSD's arpa/namserv.h which has the following
+ * copyright statement:
+ *	$OpenBSD: nameser.h,v 1.15 2022/12/27 07:44:56 jmc Exp $	*/
+/*
+ * ++Copyright++ 1983, 1989, 1993
+ * -
+ * Copyright (c) 1983, 1989, 1993
+ *    The Regents of the University of California.  All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ * -
+ * Portions Copyright (c) 1993 by Digital Equipment Corporation.
+ * 
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies, and that
+ * the name of Digital Equipment Corporation not be used in advertising or
+ * publicity pertaining to distribution of the document or software without
+ * specific, written prior permission.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND DIGITAL EQUIPMENT CORP. DISCLAIMS ALL
+ * WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS.   IN NO EVENT SHALL DIGITAL EQUIPMENT
+ * CORPORATION BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+ * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
+ * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+ * SOFTWARE.
+ * -
+ * Portions Copyright (c) 1995 by International Business Machines, Inc.
+ *
+ * International Business Machines, Inc. (hereinafter called IBM) grants
+ * permission under its copyrights to use, copy, modify, and distribute this
+ * Software with or without fee, provided that the above copyright notice and
+ * all paragraphs of this notice appear in all copies, and that the name of IBM
+ * not be used in connection with the marketing of any product incorporating
+ * the Software or modifications thereof, without specific, written prior
+ * permission.
+ *
+ * To the extent it has a right to do so, IBM grants an immunity from suit
+ * under its patents, if any, for the use, sale or manufacture of products to
+ * the extent that such products are used for performing Domain Name System
+ * dynamic updates in TCP/IP networks by means of the Software.  No immunity is
+ * granted for any product per se or for any other function of any product.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", AND IBM DISCLAIMS ALL WARRANTIES,
+ * INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ * PARTICULAR PURPOSE.  IN NO EVENT SHALL IBM BE LIABLE FOR ANY SPECIAL,
+ * DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE, EVEN
+ * IF IBM IS APPRISED OF THE POSSIBILITY OF SUCH DAMAGES.
+ * --Copyright--
+ */
+
+/*
+ *      @(#)nameser.h	8.1 (Berkeley) 6/2/93
+ *	$From: nameser.h,v 8.11 1996/10/08 04:51:02 vixie Exp $
+ */
+
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
@@ -128,6 +209,19 @@
 	#include <pcap.h>
 #endif
 
+/* currently, we only support little endian, e.g., in DNS */
+#ifdef __linux__
+	#if !defined(__BYTE_ORDER__) || (__BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__)
+		#error "Currently only supporting little endian systems."
+	#endif
+#else
+	#if !defined(_BYTE_ORDER) || \
+	    (_BYTE_ORDER != _BIG_ENDIAN && _BYTE_ORDER != _LITTLE_ENDIAN && \
+	    _BYTE_ORDER != _PDP_ENDIAN)
+		#error "Currently only supporting little endian systems."
+	#endif
+#endif
+
 #ifndef PCAP_BASEPATH
 	#define PCAP_BASEPATH "/var/www/pcaps/"
 #endif
@@ -144,6 +238,7 @@ typedef struct {
 	u_int8_t	icmp6:1;
 	u_int8_t	udp:1;
 	u_int8_t	tcp:1;
+	u_int8_t	dns:1;
 	u_int8_t	others:1;
 #define MODPCAP_FILTER_LIMIT_MAX	0x7fffffff
 	int		limit;
@@ -223,6 +318,36 @@ typedef struct
 	u_int16_t uh_sum;		/* udp checksum */
 } _udphdr;
 
+
+/* from OpenBSD's arpa/namserv.h; slightly modified */
+typedef struct {
+	unsigned	id :16;		/* query identification number */
+/* Currently defined opcodes */
+#define DNS_QUERY		0x0		/* standard query */
+#define DNS_IQUERY		0x1		/* inverse query */
+#define DNS_STATUS		0x2		/* nameserver status query */
+/*#define xxx			0x3*/		/* 0x3 reserved */
+#define DNS_NS_NOTIFY_OP	0x4		/* notify secondary of SOA change */
+#define DNS_UPDATE		0x5
+	/* fields in third byte */
+	unsigned	rd :1;		/* recursion desired */
+	unsigned	tc :1;		/* truncated message */
+	unsigned	aa :1;		/* authoritative answer */
+	unsigned	opcode :4;	/* purpose of message */
+	unsigned	qr :1;		/* response flag */
+	/* fields in fourth byte */
+	unsigned	rcode :4;	/* response code */
+	unsigned	cd: 1;		/* checking disabled by resolver */
+	unsigned	ad: 1;		/* authentic data from named */
+	unsigned	unused :1;	/* unused bits (MBZ as of 4.9.3a3) */
+	unsigned	ra :1;		/* recursion available */
+	/* remaining bytes */
+	unsigned	qdcount :16;	/* number of question entries */
+	unsigned	ancount :16;	/* number of answer entries */
+	unsigned	nscount :16;	/* number of authority entries */
+	unsigned	arcount :16;	/* number of resource entries */
+} _dnshdr;
+
 typedef struct
 {
 	/* the following pointers are used to later assemble the packet string */
@@ -231,14 +356,14 @@ typedef struct
 	
 	/* the following str_*-buffers are also used to assemble the packet string */
 	char /*ip4*/
-		 str_ip_v[3],
+		str_ip_v[3],
 		str_ip_hl[3],
-		 str_ip_tos[4],
-		 str_ip_id[7],
-		 str_ip_off[7],
-		 str_ip_ttl[4],
-		 str_ip_p[4],
-		 str_ip_sum[7],
+		str_ip_tos[4],
+		str_ip_id[7],
+		str_ip_off[7],
+		str_ip_ttl[4],
+		str_ip_p[4],
+		str_ip_sum[7],
 		str_ip_src[16],
 		str_ip_dst[16],
 	    /*ip6*/
@@ -264,6 +389,16 @@ typedef struct
 		str_udp_sport[7],
 		str_udp_dport[7],
 		str_udp_len[7],
-		str_udp_cksum[7];
+		str_udp_cksum[7],
+	   /* dns */
+	   	str_dns_id[8],
+	   	str_dns_flags[24],
+	   	str_dns_opcode[3],
+	   	str_dns_rcode[4],
+	   	str_dns_qdcount[7],
+	   	str_dns_ancount[7],
+	   	str_dns_nscount[7],
+	   	str_dns_arcount[7];
 } _hdr_descr;
+
 

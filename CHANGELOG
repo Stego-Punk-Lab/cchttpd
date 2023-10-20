@@ -11,6 +11,8 @@ pcapHTTPd ChangeLog:
  - modpcap: added "limit=x" URL parameter
  - reduce number of max. parallel connections to 0x30 so that we do not
    end up with "too many open files" error when calling pipe().
+ - fix num.packets value for excluded packets (don't count these)
+ - added essential DNS support [RRs are still missing] + "dns" filter
 
 0.2.2: Wed, Sep-28-2023, 3.690 LOC
  - serveral bugfixes; made sure code runs on current OS versions

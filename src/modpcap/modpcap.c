@@ -21,6 +21,8 @@
 
 #include "include/modpcap.h"
 
+#define SKIP_PKT_DNT_CNT	count--; /* packet doesn't count */; continue; /* skip */
+
 int mod_init(void)
 {
 	/* unused */
@@ -82,7 +84,32 @@ get_framelen(int datalink)
 }
 
 void
-handle_tcp(_tcphdr *tcphdr, _hdr_descr *hdr_desc)
+handle_dns(_dnshdr *dnshdr, _hdr_descr *hdr_desc)
+{
+	char dns_opcode = (dnshdr->opcode == DNS_QUERY ? 'Q' : (dnshdr->opcode == DNS_IQUERY ? 'I' : (dnshdr->opcode == DNS_STATUS ? 'S' : (dnshdr->opcode == DNS_NS_NOTIFY_OP ? 'N' : (dnshdr->opcode == DNS_UPDATE ? 'U' : '?')))));
+	
+	snprintf(hdr_desc->str_dns_id, sizeof(hdr_desc->str_dns_id) - 1, "0x%x", ntohs(dnshdr->id));
+	/* DNS flags combined */
+	snprintf(hdr_desc->str_dns_flags, sizeof(hdr_desc->str_dns_flags) - 1, "%s/%s/%s/%s/%s/%s/%s/%s",
+		(dnshdr->qr == 1 ? "R" : "Q"),
+		(dnshdr->aa == 1 ? "AA" : "-"),
+		(dnshdr->tc == 1 ? "TC" : "-"),
+		(dnshdr->rd == 1 ? "RD" : "-"),
+		(dnshdr->ra == 1 ? "RA" : "-"),
+		(dnshdr->unused == 1 ? "Z" : "-"),
+		(dnshdr->ad == 1 ? "AD" : "-"),
+		(dnshdr->cd == 1 ? "CD" : "-"));
+	snprintf(hdr_desc->str_dns_opcode, sizeof(hdr_desc->str_dns_opcode) - 1, "%c", dns_opcode);
+	snprintf(hdr_desc->str_dns_rcode, sizeof(hdr_desc->str_dns_rcode) - 1, "%u", dnshdr->rcode);
+	/* check for contrained RRs */
+	snprintf(hdr_desc->str_dns_qdcount, sizeof(hdr_desc->str_dns_qdcount) - 1, "%d", ntohs(dnshdr->qdcount)); /* #questions */
+	snprintf(hdr_desc->str_dns_ancount, sizeof(hdr_desc->str_dns_ancount) - 1, "%d", ntohs(dnshdr->ancount)); /* #ansers */
+	snprintf(hdr_desc->str_dns_nscount, sizeof(hdr_desc->str_dns_nscount) - 1, "%d", ntohs(dnshdr->nscount)); /* #auth. entr. */
+	snprintf(hdr_desc->str_dns_arcount, sizeof(hdr_desc->str_dns_arcount) - 1, "%d", ntohs(dnshdr->arcount)); /* #add. entr. */
+}
+
+void
+handle_tcp(_tcphdr *tcphdr, _hdr_descr *hdr_desc, _pcap_filter *filter)
 {
 	snprintf(hdr_desc->str_tcp_sport, sizeof(hdr_desc->str_tcp_sport) - 1, "%u", htons(tcphdr->th_sport));
 	snprintf(hdr_desc->str_tcp_dport, sizeof(hdr_desc->str_tcp_dport) - 1, "%u", htons(tcphdr->th_dport));
@@ -92,15 +119,31 @@ handle_tcp(_tcphdr *tcphdr, _hdr_descr *hdr_desc)
 	snprintf(hdr_desc->str_tcp_flags, 4, "%u", tcphdr->th_flags);
 	snprintf(hdr_desc->str_tcp_win, sizeof(hdr_desc->str_tcp_win) - 1, "%u", tcphdr->th_win);
 	snprintf(hdr_desc->str_tcp_urp, sizeof(hdr_desc->str_tcp_urp) - 1, "%u", tcphdr->th_urp);
+	/* handle specific protocols here */
+	if (htons(tcphdr->th_sport) == 53 || htons(tcphdr->th_dport) == 53) {
+		/* point to area brhind the UDP hdr */
+		// TODO: is the captured frame still big enough?
+		if (filter->dns == 1) {
+			handle_dns((_dnshdr *)(tcphdr+1), hdr_desc);
+		}
+	}
 }
 
 void
-handle_udp(_udphdr *udphdr, _hdr_descr *hdr_desc)
+handle_udp(_udphdr *udphdr, _hdr_descr *hdr_desc, _pcap_filter *filter)
 {
 	snprintf(hdr_desc->str_udp_sport, sizeof(hdr_desc->str_udp_sport) - 1, "%u", htons(udphdr->uh_sport));
 	snprintf(hdr_desc->str_udp_dport, sizeof(hdr_desc->str_udp_dport) - 1, "%u", htons(udphdr->uh_dport));
 	snprintf(hdr_desc->str_udp_len, sizeof(hdr_desc->str_udp_len) - 1, "%u", htons(udphdr->uh_ulen));
 	snprintf(hdr_desc->str_udp_cksum, sizeof(hdr_desc->str_udp_cksum) - 1, "%u", htons(udphdr->uh_sum));
+	/* handle specific protocols here */
+	if (htons(udphdr->uh_sport) == 53 || htons(udphdr->uh_dport) == 53) {
+		/* point to area brhind the UDP hdr */
+		// TODO: check size of HDP hdr (does it contain data through uh_uhlen?) [could be incorrectly set on purpose!] or [better!] is the captured frame still big enough?
+		if (filter->dns == 1) {
+			handle_dns((_dnshdr *)(udphdr+1), hdr_desc);
+		}
+	}
 }
 
 int
@@ -125,7 +168,8 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 		"ip.src;ip.dst;ip.v;ip.hl;ip.tos;ip.id;ip.off;ip.ttl;ip.sum_raw;"
 		"ip6.src;ip6.dst;"
 		"tcp.sport;tcp.dport;tcp.seq;tcp.ack;tcp.off;tcp.flags;tcp.win;tcp.urp;"
-		"udp.sport;udp.dport;udp.len;udp.cksum\n"
+		"udp.sport;udp.dport;udp.len;udp.cksum;"
+		"dns.id;dns.flags;dns.opcode;dns.rcode;dns.questionRRs;dns.answerRRs;dns.authRRs;dns.additRRs;\n"
 	   };
 #define OUTPUT_SIZE 1024*1024*2 /* 2 MBytes */
 	char *output = NULL;
@@ -194,7 +238,7 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 		switch (htons(eh->ether_type)) {
 		case ETHERTYPE_IP:
 			if (filter.ip4 == 0) {
-				continue; /* skip */
+				SKIP_PKT_DNT_CNT
 			}
 			// check if iphdr fits into rest of frame b/f cont.
 			if (hdr->caplen < (sizeof(struct ether_header) + sizeof(_iphdr))) {
@@ -216,37 +260,37 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 			switch (iphdr->ip_p) {
 			case 1:
 				if (filter.icmp4 == 0) {
-					continue; /* skip */
+					SKIP_PKT_DNT_CNT
 				}
 				hdr_desc.str_l3_proto = "icmp";
 				break;
 			case 2:
 				if (filter.others == 0) {
-					continue; /* skip */
+					SKIP_PKT_DNT_CNT
 				}
 				hdr_desc.str_l3_proto = "igmp";
 				break;
 			case 6:
 				if (filter.tcp == 0) {
-					continue; /* skip */
+					SKIP_PKT_DNT_CNT
 				}
 				hdr_desc.str_l3_proto = "tcp";
 				tcphdr = (_tcphdr *) (packet + framelen + (iphdr->ip_hl*4));
 				//FIXME: check pkt len to see if it fits tcphdr
-				handle_tcp(tcphdr, &hdr_desc);
+				handle_tcp(tcphdr, &hdr_desc, &filter);
 				break;
 			case 17:
 				if (filter.udp == 0) {
-					continue; /* skip */
+					SKIP_PKT_DNT_CNT
 				}
 				hdr_desc.str_l3_proto = "udp";
 				udphdr = (_udphdr *) (packet + framelen + (iphdr->ip_hl*4));
 				//FIXME: check pkt len to see if it fits udphdr
-				handle_udp(udphdr, &hdr_desc);
+				handle_udp(udphdr, &hdr_desc, &filter);
 				break;
 			default:
 				if (filter.others == 0) {
-					continue; /* skip */
+					SKIP_PKT_DNT_CNT
 				}
 				/* other protocol: TODO: use numeric value */
 				hdr_desc.str_l3_proto = "other";
@@ -256,7 +300,7 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 			break;
 		case ETHERTYPE_IPV6:
 			if (filter.ip6 == 0) {
-				continue; /* skip */
+				SKIP_PKT_DNT_CNT
 			}
 			// check if iphdr fits into rest of frame b/f cont.
 			if (hdr->caplen < (sizeof(struct ether_header) + sizeof(_ip6hdr))) {
@@ -279,56 +323,56 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 			switch (ip6hdr->ip6_ctlun.ip6_un1.ip6_un1_nxt) {
 			case 1:
 				if (filter.icmp4 == 0) {
-					continue; /* skip */
+					SKIP_PKT_DNT_CNT
 				}
 				hdr_desc.str_l3_proto = "icmp";
 				break;
 			case 2:
 				if (filter.others == 0) {
-					continue; /* skip */
+					SKIP_PKT_DNT_CNT
 				}
 
 				hdr_desc.str_l3_proto = "igmp";
 				break;
 			case 6:
 				if (filter.tcp == 0) {
-					continue; /* skip */
+					SKIP_PKT_DNT_CNT
 				}
 				hdr_desc.str_l3_proto = "tcp";
 				//FIXME: check pkt len to see if it fits tcphdr
 				tcphdr = (_tcphdr *) (packet + framelen + sizeof(_ip6hdr));
-				handle_tcp(tcphdr, &hdr_desc);
+				handle_tcp(tcphdr, &hdr_desc, &filter);
 				break;
 			case 17:
 				if (filter.udp == 0) {
-					continue; /* skip */
+					SKIP_PKT_DNT_CNT
 				}
 				hdr_desc.str_l3_proto = "udp";
 				//FIXME: check pkt len to see if it fits udphdr
 				udphdr = (_udphdr *) (packet + framelen + sizeof(_ip6hdr));
-				handle_udp(udphdr, &hdr_desc);
+				handle_udp(udphdr, &hdr_desc, &filter);
 				break;
 			case 58:
 				if (filter.icmp6 == 0) {
-					continue; /* skip */
+					SKIP_PKT_DNT_CNT
 				}
 				hdr_desc.str_l3_proto = "icmp6";
 				break;
 			case 59:
 				if (filter.others == 0) {
-					continue; /* skip */
+					SKIP_PKT_DNT_CNT
 				}
 				hdr_desc.str_l3_proto = "ip6-no-next-hdr"; /* IPv6-NoNxt */
 				break;
 			case 60:
 				if (filter.others == 0) {
-					continue; /* skip */
+					SKIP_PKT_DNT_CNT
 				}
 				hdr_desc.str_l3_proto = "ip6-dst-opts";
 				break;
 			default:
 				if (filter.others == 0) {
-					continue; /* skip */
+					SKIP_PKT_DNT_CNT
 				}
 				hdr_desc.str_l3_proto = "other";
 				/*printf("%hi (pkt no %i)\n", ip6hdr->ip6_ctlun.ip6_un1.ip6_un1_nxt, count);*/
@@ -337,14 +381,14 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 			break;
 		case ETHERTYPE_ARP:
 			if (filter.others == 0)
-				continue; /* skip */
+				SKIP_PKT_DNT_CNT
 			
 			hdr_desc.str_ether_type = "arp";
 			break;
 		default:
 			/* other ether type: TODO: use the numeric value */
 			if (filter.others == 0)
-				continue; /* skip */
+				SKIP_PKT_DNT_CNT
 			
 			hdr_desc.str_ether_type = "other";
 #ifdef DEBUG
@@ -358,20 +402,36 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 			"%s;%s;%s;%s;%s;%s;%s;%s;%s;" /* ip4 */
 			"%s;%s;" /* ip6 */
 			"%s;%s;%s;%s;%s;%s;%s;%s;" /* tcp */
-			"%s;%s;%s;%s" /* udp */
+			"%s;%s;%s;%s;" /* udp */
+			"%s;%s;%s;%s;%s;%s;%s;%s"/* dns */
 			"\n",
 			/* meta + frame */
 			hdr->ts.tv_sec, hdr->ts.tv_usec, hdr->caplen, hdr->len,
 			/* ethernet and proto types */
-			hdr_desc.str_ether_type, (hdr_desc.str_l3_proto == NULL ? "" : hdr_desc.str_l3_proto),
+			hdr_desc.str_ether_type,
+			   (hdr_desc.str_l3_proto == NULL ? "" : hdr_desc.str_l3_proto),
 			/* ipv4 */
-			(iphdr != NULL ? inet_ntoa(iphdr->ip_src) : ""), (iphdr != NULL ? inet_ntoa(iphdr->ip_dst) : ""), hdr_desc.str_ip_v, hdr_desc.str_ip_hl, hdr_desc.str_ip_tos, hdr_desc.str_ip_id, hdr_desc.str_ip_off, hdr_desc.str_ip_ttl, hdr_desc.str_ip_sum,
+			(iphdr != NULL ? inet_ntoa(iphdr->ip_src) : ""),
+			   (iphdr != NULL ? inet_ntoa(iphdr->ip_dst) : ""),
+			   hdr_desc.str_ip_v, hdr_desc.str_ip_hl, hdr_desc.str_ip_tos,
+			   hdr_desc.str_ip_id, hdr_desc.str_ip_off, hdr_desc.str_ip_ttl,
+			   hdr_desc.str_ip_sum,
 			/* ipv6 */
 			hdr_desc.str_ip6_src, hdr_desc.str_ip6_dst,
 			/* tcp */
-			hdr_desc.str_tcp_sport, hdr_desc.str_tcp_dport, hdr_desc.str_tcp_seq, hdr_desc.str_tcp_ack, hdr_desc.str_tcp_off, hdr_desc.str_tcp_flags, hdr_desc.str_tcp_win, hdr_desc.str_tcp_urp,
+			hdr_desc.str_tcp_sport, hdr_desc.str_tcp_dport,
+			   hdr_desc.str_tcp_seq, hdr_desc.str_tcp_ack,
+			   hdr_desc.str_tcp_off, hdr_desc.str_tcp_flags,
+			   hdr_desc.str_tcp_win, hdr_desc.str_tcp_urp,
 			/* udp */
-			hdr_desc.str_udp_sport, hdr_desc.str_udp_dport, hdr_desc.str_udp_len, hdr_desc.str_udp_cksum);
+			hdr_desc.str_udp_sport, hdr_desc.str_udp_dport,
+			   hdr_desc.str_udp_len, hdr_desc.str_udp_cksum,
+			/* dns */
+			hdr_desc.str_dns_id, hdr_desc.str_dns_flags,
+			   hdr_desc.str_dns_opcode, hdr_desc.str_dns_rcode,
+			   hdr_desc.str_dns_qdcount, hdr_desc.str_dns_ancount,
+			   hdr_desc.str_dns_nscount, hdr_desc.str_dns_arcount
+			);
 		
 		len_new_pkt_str = strlen(new_pkt_str);
 		if (output_len_cur > (OUTPUT_SIZE - len_new_pkt_str - 2)) {
@@ -433,7 +493,7 @@ mod_reqhandler(int fd_snd, char *query_string)
 			{
 				char *tmp_val;
 				
-				filter.ip4 = filter.icmp4 = filter.ip6 = filter.icmp6 = filter.tcp = filter.udp = filter.others = 1;
+				filter.ip4 = filter.icmp4 = filter.ip6 = filter.icmp6 = filter.tcp = filter.udp = filter.dns = filter.others = 1;
 				filter.limit = MODPCAP_FILTER_LIMIT_MAX;
 				
 				if ((tmp_val = cwd_get_value_from_var(query_string, "ip4"))) {
@@ -481,6 +541,14 @@ mod_reqhandler(int fd_snd, char *query_string)
 						filter.udp = 1;
 					} else {
 						filter.udp = 0;
+					}
+					free(tmp_val);
+				}
+				if ((tmp_val = cwd_get_value_from_var(query_string, "dns"))) {
+					if (tmp_val[0] == '1') {
+						filter.dns = 1;
+					} else {
+						filter.dns = 0;
 					}
 					free(tmp_val);
 				}
