@@ -119,6 +119,7 @@ handle_tcp(_tcphdr *tcphdr, _hdr_descr *hdr_desc, _pcap_filter *filter)
 	snprintf(hdr_desc->str_tcp_flags, 4, "%u", tcphdr->th_flags);
 	snprintf(hdr_desc->str_tcp_win, sizeof(hdr_desc->str_tcp_win) - 1, "%u", tcphdr->th_win);
 	snprintf(hdr_desc->str_tcp_urp, sizeof(hdr_desc->str_tcp_urp) - 1, "%u", tcphdr->th_urp);
+	snprintf(hdr_desc->str_tcp_cksum, sizeof(hdr_desc->str_tcp_cksum) - 1, "%u", htons(tcphdr->th_sum));
 	/* handle specific protocols here */
 	if (htons(tcphdr->th_sport) == 53 || htons(tcphdr->th_dport) == 53) {
 		/* point to area brhind the UDP hdr */
@@ -401,7 +402,7 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 			"%s;%s;" /* l2 and l3 protos */
 			"%s;%s;%s;%s;%s;%s;%s;%s;%s;" /* ip4 */
 			"%s;%s;" /* ip6 */
-			"%s;%s;%s;%s;%s;%s;%s;%s;" /* tcp */
+			"%s;%s;%s;%s;%s;%s;%s;%s;%s;" /* tcp */
 			"%s;%s;%s;%s;" /* udp */
 			"%s;%s;%s;%s;%s;%s;%s;%s"/* dns */
 			"\n",
@@ -423,6 +424,7 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 			   hdr_desc.str_tcp_seq, hdr_desc.str_tcp_ack,
 			   hdr_desc.str_tcp_off, hdr_desc.str_tcp_flags,
 			   hdr_desc.str_tcp_win, hdr_desc.str_tcp_urp,
+			   hdr_desc.str_tcp_cksum,
 			/* udp */
 			hdr_desc.str_udp_sport, hdr_desc.str_udp_dport,
 			   hdr_desc.str_udp_len, hdr_desc.str_udp_cksum,

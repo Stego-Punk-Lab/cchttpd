@@ -13,6 +13,7 @@ pcapHTTPd ChangeLog:
    end up with "too many open files" error when calling pipe().
  - fix num.packets value for excluded packets (don't count these)
  - added essential DNS support [RRs are still missing] + "dns" filter
+ - add TCP checksum
 
 0.2.2: Wed, Sep-28-2023, 3.690 LOC
  - serveral bugfixes; made sure code runs on current OS versions

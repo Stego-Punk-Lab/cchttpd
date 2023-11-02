@@ -385,6 +385,7 @@ typedef struct
 		str_tcp_win[7],
 		str_tcp_sum[7],
 		str_tcp_urp[7],
+		str_tcp_cksum[7],
 	    /*udp*/
 		str_udp_sport[7],
 		str_udp_dport[7],
