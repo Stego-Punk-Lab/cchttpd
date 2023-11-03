@@ -166,7 +166,7 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 	char header[] = {
 		"num.packets=_________________\n"
 		"timestamp;caplen;wirelen;ethertype;l3prot;"
-		"ip.src;ip.dst;ip.v;ip.hl;ip.tos;ip.id;ip.off;ip.ttl;ip.sum_raw;"
+		"ip.src;ip.dst;ip.v;ip.hl;ip.tos;ip.id;ip.off;ip.ttl;ip.cksum;"
 		"ip6.src;ip6.dst;"
 		"tcp.sport;tcp.dport;tcp.seq;tcp.ack;tcp.off;tcp.flags;tcp.win;tcp.urp;tcp.cksum;"
 		"udp.sport;udp.dport;udp.len;udp.cksum;"
