@@ -103,8 +103,6 @@ The pcap-ng file format is supported only on Linux so far.
 
 ccHTTPd with PCAP service is used as part of our steganography/network security research. Check out our other repositories:
 
+- [Stego Punk Research Group, featuring our papers](https://stego-punk.net/)
 - [Steffen's network covert channel tools](https://github.com/cdpxe/NetworkCovertChannels)
 - [Steffen's network steganography online class](https://github.com/cdpxe/Network-Covert-Channels-A-University-level-Course)
-- [Our scientific papers](https://wendzel.de/pub/) (new stego-punk website will come in the next months)
-
-
