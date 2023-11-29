@@ -33,6 +33,14 @@ int mod_init(void)
 // /home/wendzel/git/papers/002_Unfinished/TDSC_DYST/recordings/CS_home_idle_saturday_away.pcap
 // /home/wendzel/git/projects/old_projects/xyriahttpd/ip6.pcap
 
+int is_packet_udp_dns(_udphdr *udphdr) {
+	return htons(udphdr->uh_sport) == 53 || htons(udphdr->uh_dport) == 53;
+}
+
+int is_packet_tcp_dns(_tcphdr *tcphdr) {
+	return htons(tcphdr->th_sport) == 53 || htons(tcphdr->th_dport) == 53;
+}
+
 int
 get_framelen(int datalink)
 {
@@ -120,13 +128,10 @@ handle_tcp(_tcphdr *tcphdr, _hdr_descr *hdr_desc, _pcap_filter *filter)
 	snprintf(hdr_desc->str_tcp_win, sizeof(hdr_desc->str_tcp_win) - 1, "%u", tcphdr->th_win);
 	snprintf(hdr_desc->str_tcp_urp, sizeof(hdr_desc->str_tcp_urp) - 1, "%u", tcphdr->th_urp);
 	snprintf(hdr_desc->str_tcp_cksum, sizeof(hdr_desc->str_tcp_cksum) - 1, "%u", htons(tcphdr->th_sum));
+
 	/* handle specific protocols here */
-	if (htons(tcphdr->th_sport) == 53 || htons(tcphdr->th_dport) == 53) {
-		/* point to area brhind the UDP hdr */
-		// TODO: is the captured frame still big enough?
-		if (filter->dns == 1) {
-			handle_dns((_dnshdr *)(tcphdr+1), hdr_desc);
-		}
+	if (is_packet_tcp_dns(tcphdr) && filter->dns == 1) {
+		handle_dns((_dnshdr *)(tcphdr+1), hdr_desc);
 	}
 }
 
@@ -137,13 +142,10 @@ handle_udp(_udphdr *udphdr, _hdr_descr *hdr_desc, _pcap_filter *filter)
 	snprintf(hdr_desc->str_udp_dport, sizeof(hdr_desc->str_udp_dport) - 1, "%u", htons(udphdr->uh_dport));
 	snprintf(hdr_desc->str_udp_len, sizeof(hdr_desc->str_udp_len) - 1, "%u", htons(udphdr->uh_ulen));
 	snprintf(hdr_desc->str_udp_cksum, sizeof(hdr_desc->str_udp_cksum) - 1, "%u", htons(udphdr->uh_sum));
+
 	/* handle specific protocols here */
-	if (htons(udphdr->uh_sport) == 53 || htons(udphdr->uh_dport) == 53) {
-		/* point to area brhind the UDP hdr */
-		// TODO: check size of HDP hdr (does it contain data through uh_uhlen?) [could be incorrectly set on purpose!] or [better!] is the captured frame still big enough?
-		if (filter->dns == 1) {
-			handle_dns((_dnshdr *)(udphdr+1), hdr_desc);
-		}
+	if (is_packet_udp_dns(udphdr) && filter->dns == 1) {
+		handle_dns((_dnshdr *)(udphdr+1), hdr_desc);
 	}
 }
 
@@ -287,6 +289,12 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 				hdr_desc.str_l3_proto = "udp";
 				udphdr = (_udphdr *) (packet + framelen + (iphdr->ip_hl*4));
 				//FIXME: check pkt len to see if it fits udphdr
+
+				// filter (non) dns packets
+				if ((filter.dns == 1) != is_packet_udp_dns(udphdr)) {
+					SKIP_PKT_DNT_CNT
+				}
+
 				handle_udp(udphdr, &hdr_desc, &filter);
 				break;
 			default:
@@ -342,6 +350,12 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 				hdr_desc.str_l3_proto = "tcp";
 				//FIXME: check pkt len to see if it fits tcphdr
 				tcphdr = (_tcphdr *) (packet + framelen + sizeof(_ip6hdr));
+
+				// filter (non) dns packets
+				if ((filter.dns == 1) != is_packet_tcp_dns(tcphdr)) {
+					SKIP_PKT_DNT_CNT
+				}
+
 				handle_tcp(tcphdr, &hdr_desc, &filter);
 				break;
 			case 17:
