@@ -473,6 +473,101 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 	return 0;
 }
 
+int is_filename_safe(int fd_snd, char* filename) {
+	/* do not allow '/', '\' and '<' (Javascript) in the filename */
+	if (strstr(filename, "/") != NULL || strstr(filename, "\\") != NULL
+	    /* check for HTML < == %3c == %3C to catch javascript */
+	    || strstr(filename, "<") != NULL || strstr(filename, "%3c") != NULL || strstr(filename, "%3C") != NULL) {
+		fprintf(stderr, "requested PCAP filename unsafe (contained '/' or '\\')\n");
+		cwd_print(fd_snd, "request rejected!");
+		free(filename);
+		return 0;
+	}
+	return 1;
+}
+
+void create_filter(char* query_string, _pcap_filter* filter) {
+	char *tmp_val;
+
+	filter->ip4 = filter->icmp4 = filter->ip6 = filter->icmp6 = filter->tcp = filter->udp = filter->dns = filter->others = 1;
+	filter->limit = MODPCAP_FILTER_LIMIT_MAX;
+
+	if ((tmp_val = cwd_get_value_from_var(query_string, "ip4"))) {
+		if (tmp_val[0] == '1') {
+			filter->ip4 = 1;
+		} else {
+			filter->ip4 = 0;
+		}
+		free(tmp_val);
+	}
+	if ((tmp_val = cwd_get_value_from_var(query_string, "icmp4"))) {
+		if (tmp_val[0] == '1') {
+			filter->icmp4 = 1;
+		} else {
+			filter->icmp4 = 0;
+		}
+		free(tmp_val);
+	}
+	if ((tmp_val = cwd_get_value_from_var(query_string, "ip6"))) {
+		if (tmp_val[0] == '1') {
+			filter->ip6 = 1;
+		} else {
+			filter->ip6 = 0;
+		}
+		free(tmp_val);
+	}
+	if ((tmp_val = cwd_get_value_from_var(query_string, "icmp6"))) {
+		if (tmp_val[0] == '1') {
+			filter->icmp6 = 1;
+		} else {
+			filter->icmp6 = 0;
+		}
+		free(tmp_val);
+	}
+	if ((tmp_val = cwd_get_value_from_var(query_string, "tcp"))) {
+		if (tmp_val[0] == '1') {
+			filter->tcp = 1;
+		} else {
+			filter->tcp = 0;
+		}
+		free(tmp_val);
+	}
+	if ((tmp_val = cwd_get_value_from_var(query_string, "udp"))) {
+		if (tmp_val[0] == '1') {
+			filter->udp = 1;
+		} else {
+			filter->udp = 0;
+		}
+		free(tmp_val);
+	}
+	if ((tmp_val = cwd_get_value_from_var(query_string, "dns"))) {
+		if (tmp_val[0] == '1') {
+			filter->dns = 1;
+		} else {
+			filter->dns = 0;
+		}
+		free(tmp_val);
+	}
+	if ((tmp_val = cwd_get_value_from_var(query_string, "others"))) {
+		if (tmp_val[0] == '1') {
+			filter->others = 1;
+		} else {
+			filter->others = 0;
+		}
+		free(tmp_val);
+	}
+	if ((tmp_val = cwd_get_value_from_var(query_string, "limit"))) {
+		filter->limit = atoi(tmp_val);
+		if (filter->limit <= 0) {
+			filter->limit = MODPCAP_FILTER_LIMIT_MAX; /* set to max. value */
+			fprintf(stderr,
+			        "invalid 'limit' value (%i) from client's URL parameter.\n",
+			        filter->limit);
+		}
+		free(tmp_val);
+	}
+}
+
 void
 mod_reqhandler(int fd_snd, char *query_string)
 {
@@ -481,99 +576,13 @@ mod_reqhandler(int fd_snd, char *query_string)
 	if (query_string) {
 		char *filename;
 		if ((filename = cwd_get_value_from_var(query_string, "file"))) {
-			/* do not allow '/', '\' and '<' (Javascript) in the filename */
-			if (strstr(filename, "/") != NULL || strstr(filename, "\\") != NULL
-			/* check for HTML < == %3c == %3C to catch javascript */
-			|| strstr(filename, "<") != NULL || strstr(filename, "%3c") != NULL || strstr(filename, "%3C") != NULL) {
-				fprintf(stderr, "requested PCAP filename unsafe (contained '/' or '\\')\n");
-				cwd_print(fd_snd, "request rejected!");
-				free(filename);
-				return;
-			}
+
+			if (! is_filename_safe(fd_snd, filename)) return;
 			
 			/* before we open the pcap file, get potential filter content */
-			{
-				char *tmp_val;
-				
-				filter.ip4 = filter.icmp4 = filter.ip6 = filter.icmp6 = filter.tcp = filter.udp = filter.dns = filter.others = 1;
-				filter.limit = MODPCAP_FILTER_LIMIT_MAX;
-				
-				if ((tmp_val = cwd_get_value_from_var(query_string, "ip4"))) {
-					if (tmp_val[0] == '1') {
-						filter.ip4 = 1;
-					} else {
-						filter.ip4 = 0;
-					}
-					free(tmp_val);
-				}
-				if ((tmp_val = cwd_get_value_from_var(query_string, "icmp4"))) {
-					if (tmp_val[0] == '1') {
-						filter.icmp4 = 1;
-					} else {
-						filter.icmp4 = 0;
-					}
-					free(tmp_val);
-				}
-				if ((tmp_val = cwd_get_value_from_var(query_string, "ip6"))) {
-					if (tmp_val[0] == '1') {
-						filter.ip6 = 1;
-					} else {
-						filter.ip6 = 0;
-					}
-					free(tmp_val);
-				}
-				if ((tmp_val = cwd_get_value_from_var(query_string, "icmp6"))) {
-					if (tmp_val[0] == '1') {
-						filter.icmp6 = 1;
-					} else {
-						filter.icmp6 = 0;
-					}
-					free(tmp_val);
-				}
-				if ((tmp_val = cwd_get_value_from_var(query_string, "tcp"))) {
-					if (tmp_val[0] == '1') {
-						filter.tcp = 1;
-					} else {
-						filter.tcp = 0;
-					}
-					free(tmp_val);
-				} 
-				if ((tmp_val = cwd_get_value_from_var(query_string, "udp"))) {
-					if (tmp_val[0] == '1') {
-						filter.udp = 1;
-					} else {
-						filter.udp = 0;
-					}
-					free(tmp_val);
-				}
-				if ((tmp_val = cwd_get_value_from_var(query_string, "dns"))) {
-					if (tmp_val[0] == '1') {
-						filter.dns = 1;
-					} else {
-						filter.dns = 0;
-					}
-					free(tmp_val);
-				}
-				if ((tmp_val = cwd_get_value_from_var(query_string, "others"))) {
-					if (tmp_val[0] == '1') {
-						filter.others = 1;
-					} else {
-						filter.others = 0;
-					}
-					free(tmp_val);
-				}
-				if ((tmp_val = cwd_get_value_from_var(query_string, "limit"))) {
-					filter.limit = atoi(tmp_val);
-					if (filter.limit <= 0) {
-						filter.limit = MODPCAP_FILTER_LIMIT_MAX; /* set to max. value */
-						fprintf(stderr,
-							"invalid 'limit' value (%i) from client's URL parameter.\n",
-							filter.limit);
-					}
-					free(tmp_val);
-				}
-			}
-			
+			create_filter(query_string, &filter);
+
+			// print pcap content
 			if (print_pcap_contents(fd_snd, filename, filter) != 0) {
 				cwd_print(fd_snd, ERROR_PCAP_FILE_NOT_OPENED);
 			}
