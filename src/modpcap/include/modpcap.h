@@ -240,6 +240,7 @@ typedef struct {
 	u_int8_t	tcp:1;
 	u_int8_t	dns:1;
 	u_int8_t	others:1;
+	u_int8_t	none:1;
 #define MODPCAP_FILTER_LIMIT_MAX	0x7fffffff
 	int		limit;
 } _pcap_filter;

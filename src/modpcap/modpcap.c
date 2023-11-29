@@ -278,7 +278,12 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 					SKIP_PKT_DNT_CNT
 				}
 				hdr_desc.str_l3_proto = "tcp";
-				tcphdr = (_tcphdr *) (packet + framelen + (iphdr->ip_hl*4));
+
+				// filter (non) dns packets
+				if ((filter.dns == 1) != is_packet_tcp_dns(tcphdr) && filter.none == 0) {
+					SKIP_PKT_DNT_CNT
+				}
+
 				//FIXME: check pkt len to see if it fits tcphdr
 				handle_tcp(tcphdr, &hdr_desc, &filter);
 				break;
@@ -291,7 +296,7 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 				//FIXME: check pkt len to see if it fits udphdr
 
 				// filter (non) dns packets
-				if ((filter.dns == 1) != is_packet_udp_dns(udphdr)) {
+				if ((filter.dns == 1) != is_packet_udp_dns(udphdr) && filter.none == 0) {
 					SKIP_PKT_DNT_CNT
 				}
 
@@ -352,7 +357,7 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 				tcphdr = (_tcphdr *) (packet + framelen + sizeof(_ip6hdr));
 
 				// filter (non) dns packets
-				if ((filter.dns == 1) != is_packet_tcp_dns(tcphdr)) {
+				if ((filter.dns == 1) != is_packet_tcp_dns(tcphdr) && filter.none == 0) {
 					SKIP_PKT_DNT_CNT
 				}
 
@@ -365,6 +370,12 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 				hdr_desc.str_l3_proto = "udp";
 				//FIXME: check pkt len to see if it fits udphdr
 				udphdr = (_udphdr *) (packet + framelen + sizeof(_ip6hdr));
+
+				// filter (non) dns packets
+				if ((filter.dns == 1) != is_packet_udp_dns(udphdr) && filter.none == 0) {
+					SKIP_PKT_DNT_CNT
+				}
+
 				handle_udp(udphdr, &hdr_desc, &filter);
 				break;
 			case 58:
@@ -503,10 +514,11 @@ int is_filename_safe(int fd_snd, char* filename) {
 void create_filter(char* query_string, _pcap_filter* filter) {
 	char *tmp_val;
 
-	filter->ip4 = filter->icmp4 = filter->ip6 = filter->icmp6 = filter->tcp = filter->udp = filter->dns = filter->others = 1;
+	filter->ip4 = filter->icmp4 = filter->ip6 = filter->icmp6 = filter->tcp = filter->udp = filter->dns = filter->others = filter->none = 1;
 	filter->limit = MODPCAP_FILTER_LIMIT_MAX;
 
 	if ((tmp_val = cwd_get_value_from_var(query_string, "ip4"))) {
+		filter->none = 0;
 		if (tmp_val[0] == '1') {
 			filter->ip4 = 1;
 		} else {
@@ -515,6 +527,7 @@ void create_filter(char* query_string, _pcap_filter* filter) {
 		free(tmp_val);
 	}
 	if ((tmp_val = cwd_get_value_from_var(query_string, "icmp4"))) {
+		filter->none = 0;
 		if (tmp_val[0] == '1') {
 			filter->icmp4 = 1;
 		} else {
@@ -523,6 +536,7 @@ void create_filter(char* query_string, _pcap_filter* filter) {
 		free(tmp_val);
 	}
 	if ((tmp_val = cwd_get_value_from_var(query_string, "ip6"))) {
+		filter->none = 0;
 		if (tmp_val[0] == '1') {
 			filter->ip6 = 1;
 		} else {
@@ -531,6 +545,7 @@ void create_filter(char* query_string, _pcap_filter* filter) {
 		free(tmp_val);
 	}
 	if ((tmp_val = cwd_get_value_from_var(query_string, "icmp6"))) {
+		filter->none = 0;
 		if (tmp_val[0] == '1') {
 			filter->icmp6 = 1;
 		} else {
@@ -539,6 +554,7 @@ void create_filter(char* query_string, _pcap_filter* filter) {
 		free(tmp_val);
 	}
 	if ((tmp_val = cwd_get_value_from_var(query_string, "tcp"))) {
+		filter->none = 0;
 		if (tmp_val[0] == '1') {
 			filter->tcp = 1;
 		} else {
@@ -547,6 +563,7 @@ void create_filter(char* query_string, _pcap_filter* filter) {
 		free(tmp_val);
 	}
 	if ((tmp_val = cwd_get_value_from_var(query_string, "udp"))) {
+		filter->none = 0;
 		if (tmp_val[0] == '1') {
 			filter->udp = 1;
 		} else {
@@ -555,6 +572,7 @@ void create_filter(char* query_string, _pcap_filter* filter) {
 		free(tmp_val);
 	}
 	if ((tmp_val = cwd_get_value_from_var(query_string, "dns"))) {
+		filter->none = 0;
 		if (tmp_val[0] == '1') {
 			filter->dns = 1;
 		} else {
