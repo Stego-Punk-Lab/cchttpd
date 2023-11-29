@@ -2,3 +2,4 @@ Makefile.inc
 *.o
 *.core
 bin/*
+.idea
