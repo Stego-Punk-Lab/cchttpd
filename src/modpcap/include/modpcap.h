@@ -349,6 +349,12 @@ typedef struct {
 	unsigned	arcount :16;	/* number of resource entries */
 } _dnshdr;
 
+typedef struct {
+	char *name;
+	u_int16_t qtype;
+	u_int16_t qclass;
+} _dns_question;
+
 typedef struct
 {
 	/* the following pointers are used to later assemble the packet string */

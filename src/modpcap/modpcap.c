@@ -91,6 +91,57 @@ get_framelen(int datalink)
 	return framelen;
 }
 
+void parse_question_name(char extracted_name[256], size_t* octet_pos, size_t output_pos, const unsigned char* next_section) {
+	// TODO add maximum loop count
+	// TODO make extracted_name size dynamic
+	while (next_section[(*octet_pos)] != 0) {
+		if (*octet_pos != 0) {
+			// add a dot between labels, but not at the beginning
+			if (output_pos < 256 - 1) {
+				extracted_name[output_pos] = '.';
+				output_pos++;
+			}
+		}
+
+		// first read the octet length
+		size_t octet_length = next_section[(*octet_pos)++];
+
+		// copy the label into the output buffer
+		for (size_t i = 0; i < octet_length; i++) {
+			if (*octet_pos < 256 - 1) {
+				extracted_name[output_pos] = next_section[(*octet_pos)];
+				output_pos++;
+			}
+			(*octet_pos)++;
+		}
+	}
+	extracted_name[output_pos] = '\0';
+}
+
+_dns_question*
+parse_questions(_dnshdr* dnshdr) {
+	_dns_question *question = NULL;
+	char extracted_name[256];
+	size_t octet_pos = 0;
+	size_t output_pos = 0;
+
+	// TODO handle multiple questions for return
+	for (unsigned short i=0; i < ntohs(dnshdr->qdcount); i++) {
+		question = malloc(sizeof(_dns_question));
+		const unsigned char *next_section = (unsigned char*) (dnshdr + 1);
+
+		// parse name
+		parse_question_name(extracted_name, &octet_pos, output_pos, next_section);
+		question->name = malloc(octet_pos);
+		strncpy(question->name, extracted_name,octet_pos);
+
+		question->qtype = ntohs(*(u_int16_t *)((next_section + ++octet_pos)));
+		question->qclass = ntohs(*(u_int16_t *)(next_section + octet_pos + sizeof(u_int16_t)));
+	}
+
+	return question;
+}
+
 void
 handle_dns(_dnshdr *dnshdr, _hdr_descr *hdr_desc)
 {
@@ -114,6 +165,13 @@ handle_dns(_dnshdr *dnshdr, _hdr_descr *hdr_desc)
 	snprintf(hdr_desc->str_dns_ancount, sizeof(hdr_desc->str_dns_ancount) - 1, "%d", ntohs(dnshdr->ancount)); /* #ansers */
 	snprintf(hdr_desc->str_dns_nscount, sizeof(hdr_desc->str_dns_nscount) - 1, "%d", ntohs(dnshdr->nscount)); /* #auth. entr. */
 	snprintf(hdr_desc->str_dns_arcount, sizeof(hdr_desc->str_dns_arcount) - 1, "%d", ntohs(dnshdr->arcount)); /* #add. entr. */
+
+	// TODO return length of question region, to access the next region for answers
+	_dns_question* question = parse_questions(dnshdr);
+
+	// TODO parse answer resource records
+
+	// TODO format question for respone
 }
 
 void
@@ -278,6 +336,8 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 					SKIP_PKT_DNT_CNT
 				}
 				hdr_desc.str_l3_proto = "tcp";
+
+				tcphdr = (_tcphdr *) (packet + framelen + (iphdr->ip_hl*4));
 
 				// filter (non) dns packets
 				if ((filter.dns == 1) != is_packet_tcp_dns(tcphdr) && filter.none == 0) {
