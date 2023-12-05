@@ -91,55 +91,117 @@ get_framelen(int datalink)
 	return framelen;
 }
 
-void parse_question_name(char extracted_name[256], size_t* octet_pos, size_t output_pos, const unsigned char* next_section) {
+void parse_question_name(char extracted_name[256], size_t* current_question_index, const unsigned char* question_region) {
+	size_t current_output_pos = 0;
 	// TODO add maximum loop count
 	// TODO make extracted_name size dynamic
-	while (next_section[(*octet_pos)] != 0) {
-		if (*octet_pos != 0) {
+	while (question_region[(*current_question_index)] != 0) {
+		if (*current_question_index != 0) {
 			// add a dot between labels, but not at the beginning
-			if (output_pos < 256 - 1) {
-				extracted_name[output_pos] = '.';
-				output_pos++;
+			if (current_output_pos < 256 - 1) {
+				extracted_name[current_output_pos++] = '.';
 			}
 		}
 
 		// first read the octet length
-		size_t octet_length = next_section[(*octet_pos)++];
+		size_t octet_length = question_region[(*current_question_index)++];
 
 		// copy the label into the output buffer
 		for (size_t i = 0; i < octet_length; i++) {
-			if (*octet_pos < 256 - 1) {
-				extracted_name[output_pos] = next_section[(*octet_pos)];
-				output_pos++;
+			if (*current_question_index < 256 - 1) {
+				extracted_name[current_output_pos++] = question_region[(*current_question_index)];
 			}
-			(*octet_pos)++;
+			(*current_question_index)++;
 		}
 	}
-	extracted_name[output_pos] = '\0';
+	extracted_name[current_output_pos] = '\0';
 }
 
 _dns_question*
-parse_questions(_dnshdr* dnshdr) {
+parse_questions(_dnshdr* dnshdr, size_t* current_question_index) {
 	_dns_question *question = NULL;
-	char extracted_name[256];
-	size_t octet_pos = 0;
-	size_t output_pos = 0;
 
-	// TODO handle multiple questions for return
-	for (unsigned short i=0; i < ntohs(dnshdr->qdcount); i++) {
+
+	// TODO handle multiple questions to return
+	for (uint16_t i = 0; i < ntohs(dnshdr->qdcount); i++) {
+		// TODO make name dynamic and not hardcoded
+		char extracted_name[256];
 		question = malloc(sizeof(_dns_question));
-		const unsigned char *next_section = (unsigned char*) (dnshdr + 1);
+		// TODO make offset dynamic (dynamic question region size after one loop)
+		question->header_offset = sizeof(_dnshdr);
+
+		const unsigned char *question_region = (unsigned char*) (dnshdr + 1);
 
 		// parse name
-		parse_question_name(extracted_name, &octet_pos, output_pos, next_section);
-		question->name = malloc(octet_pos);
-		strncpy(question->name, extracted_name,octet_pos);
+		parse_question_name(extracted_name, current_question_index, question_region);
+		question->name = malloc(*current_question_index);
+		question->name_length = *current_question_index;
+		strncpy(question->name, extracted_name, *current_question_index);
 
-		question->qtype = ntohs(*(u_int16_t *)((next_section + ++octet_pos)));
-		question->qclass = ntohs(*(u_int16_t *)(next_section + octet_pos + sizeof(u_int16_t)));
+		(*current_question_index)++;
+		question->qtype = ntohs(*(u_int16_t *)((question_region + *current_question_index)));
+
+		*current_question_index += sizeof(u_int16_t);
+		question->qclass = ntohs(*(u_int16_t *)(question_region + *current_question_index));
+		*current_question_index += sizeof(u_int16_t);
 	}
 
 	return question;
+}
+
+void parse_rr_name(_dns_question* question, char extracted_name[256], const unsigned char* answer_region, size_t* index) {
+	uint8_t c = answer_region[(*index)];
+	if ((c & 0xc0) == 0xc0) {
+		size_t pointer_offset=0;
+		pointer_offset = *index + ((c & 0x3f) << 8) + answer_region[*index+1];
+
+		// check if offset is found in questions
+		if (question && question->header_offset == pointer_offset) {
+			strncpy(extracted_name, question->name, question->name_length);
+			// TODO save in record
+		}
+		*index += 2;
+	} else {
+		// TODO read out name like in questions
+	}
+}
+
+_dns_rr*
+parse_answers(_dnshdr* dnshdr, size_t* current_answer_index, _dns_question* question) {
+	_dns_rr *record = NULL;
+
+	size_t index = 0;
+	// TODO handle multiple answers to return
+	for (uint16_t i = 0; i < ntohs(dnshdr->ancount); i++) {
+		// TODO make name dynamic and not hardcoded
+		char extracted_name[256];
+		record = malloc(sizeof(_dns_rr));
+
+		const unsigned char *answer_region = (unsigned char*) (dnshdr + 1) + *current_answer_index;
+
+
+		parse_rr_name(question, extracted_name, answer_region, &index);
+
+		// now the other fields..
+		record->type = ntohs(*(u_int16_t *)((answer_region + index)));
+		index += sizeof(u_int16_t);
+
+		record->class = ntohs(*(u_int16_t *)((answer_region + index)));
+		index += sizeof(u_int16_t);
+
+		record->ttl = (uint32_t) ntohl(*(u_int32_t *)((answer_region + index)));
+		index += sizeof(u_int32_t);
+
+		record->rdlength = ntohs(*(u_int16_t *)((answer_region + index)));
+		index += sizeof(u_int16_t);
+
+		// extract thje data
+		record->data = malloc(record->rdlength);
+		memcpy(record->data, answer_region + index, record->rdlength);
+		int x = 1;
+	}
+
+	return record;
 }
 
 void
@@ -167,9 +229,11 @@ handle_dns(_dnshdr *dnshdr, _hdr_descr *hdr_desc)
 	snprintf(hdr_desc->str_dns_arcount, sizeof(hdr_desc->str_dns_arcount) - 1, "%d", ntohs(dnshdr->arcount)); /* #add. entr. */
 
 	// TODO return length of question region, to access the next region for answers
-	_dns_question* question = parse_questions(dnshdr);
+	size_t current_region_index = 0;
+	_dns_question* question = parse_questions(dnshdr, &current_region_index);
 
 	// TODO parse answer resource records
+	parse_answers(dnshdr, &current_region_index, question);
 
 	// TODO format question for respone
 }

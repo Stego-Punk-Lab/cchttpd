@@ -351,9 +351,23 @@ typedef struct {
 
 typedef struct {
 	char *name;
+	u_int16_t name_length;
 	u_int16_t qtype;
 	u_int16_t qclass;
+	size_t header_offset;
 } _dns_question;
+
+// Holds the information for a dns resource record.
+typedef struct { // _dns_rr {
+	char *name;
+	uint16_t type;
+	uint16_t class;
+	uint32_t ttl;
+	uint16_t rdlength;
+	// uint16_t data_len;
+	uint8_t *data;
+	// struct dns_rr * next;
+} _dns_rr;
 
 typedef struct
 {
