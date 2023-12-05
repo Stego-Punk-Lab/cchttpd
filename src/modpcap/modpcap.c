@@ -149,16 +149,16 @@ parse_questions(_dnshdr* dnshdr, size_t* current_question_index) {
 	return question;
 }
 
-void parse_rr_name(_dns_question* question, char extracted_name[256], const unsigned char* answer_region, size_t* index) {
-	uint8_t c = answer_region[(*index)];
+void parse_rr_name(const _dns_question* question, _dns_rr *record, const unsigned char* answer_region, size_t* index) {
+	uint8_t c = answer_region[0];
 	if ((c & 0xc0) == 0xc0) {
-		size_t pointer_offset=0;
-		pointer_offset = *index + ((c & 0x3f) << 8) + answer_region[*index+1];
+		size_t pointer_offset = ((c & 0x3f) << 8) + answer_region[1];
 
 		// check if offset is found in questions
 		if (question && question->header_offset == pointer_offset) {
-			strncpy(extracted_name, question->name, question->name_length);
-			// TODO save in record
+			record->name = malloc(question->name_length);
+			record->name_length = question->name_length;
+			strncpy(record->name, question->name, question->name_length);
 		}
 		*index += 2;
 	} else {
@@ -166,42 +166,42 @@ void parse_rr_name(_dns_question* question, char extracted_name[256], const unsi
 	}
 }
 
-_dns_rr*
-parse_answers(_dnshdr* dnshdr, size_t* current_answer_index, _dns_question* question) {
+_dns_rr**
+parse_resource_records(_dnshdr* dnshdr, u_int16_t count, size_t* region_base_offset, _dns_question* question) {
 	_dns_rr *record = NULL;
+	_dns_rr **records = malloc(count * sizeof(_dns_rr));
 
-	size_t index = 0;
-	// TODO handle multiple answers to return
-	for (uint16_t i = 0; i < ntohs(dnshdr->ancount); i++) {
-		// TODO make name dynamic and not hardcoded
-		char extracted_name[256];
+	size_t current_region_index = 0;
+	for (uint16_t i = 0; i < count; i++) {
 		record = malloc(sizeof(_dns_rr));
+		records[i] = record;
 
-		const unsigned char *answer_region = (unsigned char*) (dnshdr + 1) + *current_answer_index;
+		const unsigned char *resource_region = (unsigned char*) (dnshdr + 1) + *region_base_offset + current_region_index;
 
-
-		parse_rr_name(question, extracted_name, answer_region, &index);
+		parse_rr_name(question, record, resource_region, &current_region_index);
 
 		// now the other fields..
-		record->type = ntohs(*(u_int16_t *)((answer_region + index)));
-		index += sizeof(u_int16_t);
+		// TODO this works only if the name is a pointer! otherwise you ned the offset.. but attention at the second+ iteration
+		record->type = ntohs(*(u_int16_t *)((resource_region + 2)));
+		current_region_index += sizeof(u_int16_t);
 
-		record->class = ntohs(*(u_int16_t *)((answer_region + index)));
-		index += sizeof(u_int16_t);
+		record->class = ntohs(*(u_int16_t *)((resource_region + 4)));
+		current_region_index += sizeof(u_int16_t);
 
-		record->ttl = (uint32_t) ntohl(*(u_int32_t *)((answer_region + index)));
-		index += sizeof(u_int32_t);
+		record->ttl = (uint32_t) ntohl(*(u_int32_t *)((resource_region + 6)));
+		current_region_index += sizeof(u_int32_t);
 
-		record->rdlength = ntohs(*(u_int16_t *)((answer_region + index)));
-		index += sizeof(u_int16_t);
+		record->rdlength = ntohs(*(u_int16_t *)((resource_region + 10)));
+		current_region_index += sizeof(u_int16_t);
 
-		// extract thje data
+		// extract the data
 		record->data = malloc(record->rdlength);
-		memcpy(record->data, answer_region + index, record->rdlength);
-		int x = 1;
+		memcpy(record->data, resource_region + 12, record->rdlength);
+		current_region_index += record->rdlength;
 	}
+	*region_base_offset += current_region_index;
 
-	return record;
+	return records;
 }
 
 void
@@ -228,14 +228,23 @@ handle_dns(_dnshdr *dnshdr, _hdr_descr *hdr_desc)
 	snprintf(hdr_desc->str_dns_nscount, sizeof(hdr_desc->str_dns_nscount) - 1, "%d", ntohs(dnshdr->nscount)); /* #auth. entr. */
 	snprintf(hdr_desc->str_dns_arcount, sizeof(hdr_desc->str_dns_arcount) - 1, "%d", ntohs(dnshdr->arcount)); /* #add. entr. */
 
-	// TODO return length of question region, to access the next region for answers
 	size_t current_region_index = 0;
 	_dns_question* question = parse_questions(dnshdr, &current_region_index);
 
-	// TODO parse answer resource records
-	parse_answers(dnshdr, &current_region_index, question);
+	// parse answer resource records
+	_dns_rr **answers = parse_resource_records(dnshdr, ntohs(dnshdr->ancount), &current_region_index, question);
 
-	// TODO format question for respone
+	// now parse authority
+	// TODO needs testing
+	_dns_rr **authorities = parse_resource_records(dnshdr, ntohs(dnshdr->nscount), &current_region_index, question);
+
+	// finally parse additional
+	// TODO needs testing
+	//_dns_rr **additionals = parse_resource_records(dnshdr, ntohs(dnshdr->arcount), &current_region_index, question);
+
+
+
+	// TODO format questions and rr for response
 }
 
 void
