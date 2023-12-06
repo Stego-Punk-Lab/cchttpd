@@ -235,16 +235,29 @@ handle_dns(_dnshdr *dnshdr, _hdr_descr *hdr_desc)
 	_dns_rr **answers = parse_resource_records(dnshdr, ntohs(dnshdr->ancount), &current_region_index, question);
 
 	// now parse authority
-	// TODO needs testing
 	_dns_rr **authorities = parse_resource_records(dnshdr, ntohs(dnshdr->nscount), &current_region_index, question);
 
 	// finally parse additional
-	// TODO needs testing
+	// TODO needs testing and check for OPT pseudo rr
 	//_dns_rr **additionals = parse_resource_records(dnshdr, ntohs(dnshdr->arcount), &current_region_index, question);
 
 
 
-	// TODO format questions and rr for response
+	// TODO handle multiple questions
+	// TODO needs testing if \n gets recognized in the client, not sure aboput quoting.
+	// TODO otherwise use a custom sperator, like || or similar
+	if (question) {
+		snprintf(hdr_desc->str_dns_questions, sizeof(hdr_desc->str_dns_questions) - 1,
+		"\"%s,%d,%d\"",
+			question->name,
+			question->qtype,
+			question->qclass
+		);
+	}
+
+	// TODO build answer string
+
+
 }
 
 void
@@ -280,6 +293,50 @@ handle_udp(_udphdr *udphdr, _hdr_descr *hdr_desc, _pcap_filter *filter)
 	}
 }
 
+void build_packet_string(struct pcap_pkthdr* hdr, _iphdr* iphdr, int* len_new_pkt_str, _hdr_descr hdr_desc, char new_pkt_str[4096], size_t size) {
+	snprintf(new_pkt_str, size - 1,
+	         "%ld.%06ld;%u;%u;" /* meta+frame */
+	         "%s;%s;" /* l2 and l3 protos */
+	         "%s;%s;%s;%s;%s;%s;%s;%s;%s;" /* ip4 */
+	         "%s;%s;" /* ip6 */
+	         "%s;%s;%s;%s;%s;%s;%s;%s;%s;" /* tcp */
+	         "%s;%s;%s;%s;" /* udp */
+	         "%s;%s;%s;%s;%s;%s;%s;%s;%s;"/* dns */
+	         "\n",
+	         /* meta + frame */
+	         hdr->ts.tv_sec, hdr->ts.tv_usec, hdr->caplen, hdr->len,
+	         /* ethernet and proto types */
+	         hdr_desc.str_ether_type,
+	         (hdr_desc.str_l3_proto == NULL ? "" : hdr_desc.str_l3_proto),
+	         /* ipv4 */
+	         (iphdr != NULL ? inet_ntoa(iphdr->ip_src) : ""),
+	         (iphdr != NULL ? inet_ntoa(iphdr->ip_dst) : ""),
+	         hdr_desc.str_ip_v, hdr_desc.str_ip_hl, hdr_desc.str_ip_tos,
+	         hdr_desc.str_ip_id, hdr_desc.str_ip_off, hdr_desc.str_ip_ttl,
+	         hdr_desc.str_ip_sum,
+	         /* ipv6 */
+	         hdr_desc.str_ip6_src, hdr_desc.str_ip6_dst,
+	         /* tcp */
+	         hdr_desc.str_tcp_sport, hdr_desc.str_tcp_dport,
+	         hdr_desc.str_tcp_seq, hdr_desc.str_tcp_ack,
+	         hdr_desc.str_tcp_off, hdr_desc.str_tcp_flags,
+	         hdr_desc.str_tcp_win, hdr_desc.str_tcp_urp,
+	         hdr_desc.str_tcp_cksum,
+	         /* udp */
+	         hdr_desc.str_udp_sport, hdr_desc.str_udp_dport,
+	         hdr_desc.str_udp_len, hdr_desc.str_udp_cksum,
+	         /* dns */
+	         hdr_desc.str_dns_id, hdr_desc.str_dns_flags,
+	         hdr_desc.str_dns_opcode, hdr_desc.str_dns_rcode,
+	         hdr_desc.str_dns_qdcount, hdr_desc.str_dns_ancount,
+	         hdr_desc.str_dns_nscount, hdr_desc.str_dns_arcount,
+	         //"\"www.example.com,15,1,1\nwww.example2.com,16,1,1\""
+	         hdr_desc.str_dns_questions
+	);
+
+	*len_new_pkt_str = strlen(new_pkt_str);
+}
+
 int
 print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 {
@@ -303,7 +360,7 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 		"ip6.src;ip6.dst;"
 		"tcp.sport;tcp.dport;tcp.seq;tcp.ack;tcp.off;tcp.flags;tcp.win;tcp.urp;tcp.cksum;"
 		"udp.sport;udp.dport;udp.len;udp.cksum;"
-		"dns.id;dns.flags;dns.opcode;dns.rcode;dns.questionRRs;dns.answerRRs;dns.authRRs;dns.additRRs;\n"
+		"dns.id;dns.flags;dns.opcode;dns.rcode;dns.questionRRs;dns.answerRRs;dns.authRRs;dns.additRRs;dns.questions;\n"
 	   };
 #define OUTPUT_SIZE 1024*1024*2 /* 2 MBytes */
 	char *output = NULL;
@@ -555,45 +612,10 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 #endif
 			break;
 		}
-		snprintf(new_pkt_str, sizeof(new_pkt_str) - 1,
-			"%ld.%06ld;%u;%u;" /* meta+frame */
-			"%s;%s;" /* l2 and l3 protos */
-			"%s;%s;%s;%s;%s;%s;%s;%s;%s;" /* ip4 */
-			"%s;%s;" /* ip6 */
-			"%s;%s;%s;%s;%s;%s;%s;%s;%s;" /* tcp */
-			"%s;%s;%s;%s;" /* udp */
-			"%s;%s;%s;%s;%s;%s;%s;%s"/* dns */
-			"\n",
-			/* meta + frame */
-			hdr->ts.tv_sec, hdr->ts.tv_usec, hdr->caplen, hdr->len,
-			/* ethernet and proto types */
-			hdr_desc.str_ether_type,
-			   (hdr_desc.str_l3_proto == NULL ? "" : hdr_desc.str_l3_proto),
-			/* ipv4 */
-			(iphdr != NULL ? inet_ntoa(iphdr->ip_src) : ""),
-			   (iphdr != NULL ? inet_ntoa(iphdr->ip_dst) : ""),
-			   hdr_desc.str_ip_v, hdr_desc.str_ip_hl, hdr_desc.str_ip_tos,
-			   hdr_desc.str_ip_id, hdr_desc.str_ip_off, hdr_desc.str_ip_ttl,
-			   hdr_desc.str_ip_sum,
-			/* ipv6 */
-			hdr_desc.str_ip6_src, hdr_desc.str_ip6_dst,
-			/* tcp */
-			hdr_desc.str_tcp_sport, hdr_desc.str_tcp_dport,
-			   hdr_desc.str_tcp_seq, hdr_desc.str_tcp_ack,
-			   hdr_desc.str_tcp_off, hdr_desc.str_tcp_flags,
-			   hdr_desc.str_tcp_win, hdr_desc.str_tcp_urp,
-			   hdr_desc.str_tcp_cksum,
-			/* udp */
-			hdr_desc.str_udp_sport, hdr_desc.str_udp_dport,
-			   hdr_desc.str_udp_len, hdr_desc.str_udp_cksum,
-			/* dns */
-			hdr_desc.str_dns_id, hdr_desc.str_dns_flags,
-			   hdr_desc.str_dns_opcode, hdr_desc.str_dns_rcode,
-			   hdr_desc.str_dns_qdcount, hdr_desc.str_dns_ancount,
-			   hdr_desc.str_dns_nscount, hdr_desc.str_dns_arcount
-			);
-		
-		len_new_pkt_str = strlen(new_pkt_str);
+
+		// build output string for the current packet
+		build_packet_string(hdr, iphdr, &len_new_pkt_str, hdr_desc, new_pkt_str, sizeof(new_pkt_str));
+
 		if (output_len_cur > (OUTPUT_SIZE - len_new_pkt_str - 2)) {
 			/* output buffer is full: send data and restart filling the buffer from scratch */
 			

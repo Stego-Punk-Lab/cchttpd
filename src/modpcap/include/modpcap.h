@@ -419,7 +419,9 @@ typedef struct
 	   	str_dns_qdcount[7],
 	   	str_dns_ancount[7],
 	   	str_dns_nscount[7],
-	   	str_dns_arcount[7];
+	   	str_dns_arcount[7],
+		// TODO which size?
+		str_dns_questions[256];
 } _hdr_descr;
 
 
