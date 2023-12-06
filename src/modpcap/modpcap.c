@@ -258,12 +258,13 @@ handle_dns(_dnshdr *dnshdr, _hdr_descr *hdr_desc)
 	for (uint16_t i = 0; i < ntohs(dnshdr->ancount); i++) {
 		char tmp_buffer[256];
 		snprintf(tmp_buffer, sizeof(tmp_buffer),
-		         "%s,%d,%d,%d,%d,%d",
+		         "%s,%d,%d,%d,%d,%x",
 		         answers[i]->name,
 		         answers[i]->type,
 		         answers[i]->class,
 		         answers[i]->ttl,
 		         answers[i]->rdlength,
+				// TODO copied data wrong
 		         answers[i]->data
 		);
 		strcat(buffer, tmp_buffer);
