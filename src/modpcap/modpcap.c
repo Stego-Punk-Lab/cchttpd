@@ -241,11 +241,7 @@ handle_dns(_dnshdr *dnshdr, _hdr_descr *hdr_desc)
 	// TODO needs testing and check for OPT pseudo rr
 	//_dns_rr **additionals = parse_resource_records(dnshdr, ntohs(dnshdr->arcount), &current_region_index, question);
 
-
-
 	// TODO handle multiple questions
-	// TODO needs testing if \n gets recognized in the client, not sure aboput quoting.
-	// TODO otherwise use a custom sperator, like || or similar
 	if (question) {
 		snprintf(hdr_desc->str_dns_questions, sizeof(hdr_desc->str_dns_questions) - 1,
 		"\"%s,%d,%d\"",
@@ -256,8 +252,29 @@ handle_dns(_dnshdr *dnshdr, _hdr_descr *hdr_desc)
 	}
 
 	// TODO build answer string
+	// TODO only append buffer if ancount > 0
+	// TODO size
+	char buffer[4096] = {"\""};
+	for (uint16_t i = 0; i < ntohs(dnshdr->ancount); i++) {
+		char tmp_buffer[256];
+		snprintf(tmp_buffer, sizeof(tmp_buffer),
+		         "%s,%d,%d,%d,%d,%d",
+		         answers[i]->name,
+		         answers[i]->type,
+		         answers[i]->class,
+		         answers[i]->ttl,
+		         answers[i]->rdlength,
+		         answers[i]->data
+		);
+		strcat(buffer, tmp_buffer);
+		if (i < dnshdr->ancount - 1) {
+			strcat(buffer, "|||");
+		}
+	}
 
-
+	// TODO char is lost
+	buffer[4095]="\"";
+	strcpy(hdr_desc->str_dns_answers, buffer);
 }
 
 void
@@ -301,7 +318,7 @@ void build_packet_string(struct pcap_pkthdr* hdr, _iphdr* iphdr, int* len_new_pk
 	         "%s;%s;" /* ip6 */
 	         "%s;%s;%s;%s;%s;%s;%s;%s;%s;" /* tcp */
 	         "%s;%s;%s;%s;" /* udp */
-	         "%s;%s;%s;%s;%s;%s;%s;%s;%s;"/* dns */
+	         "%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;"/* dns */
 	         "\n",
 	         /* meta + frame */
 	         hdr->ts.tv_sec, hdr->ts.tv_usec, hdr->caplen, hdr->len,
@@ -330,8 +347,7 @@ void build_packet_string(struct pcap_pkthdr* hdr, _iphdr* iphdr, int* len_new_pk
 	         hdr_desc.str_dns_opcode, hdr_desc.str_dns_rcode,
 	         hdr_desc.str_dns_qdcount, hdr_desc.str_dns_ancount,
 	         hdr_desc.str_dns_nscount, hdr_desc.str_dns_arcount,
-	         //"\"www.example.com,15,1,1\nwww.example2.com,16,1,1\""
-	         hdr_desc.str_dns_questions
+	         hdr_desc.str_dns_questions, hdr_desc.str_dns_answers
 	);
 
 	*len_new_pkt_str = strlen(new_pkt_str);
@@ -360,7 +376,7 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 		"ip6.src;ip6.dst;"
 		"tcp.sport;tcp.dport;tcp.seq;tcp.ack;tcp.off;tcp.flags;tcp.win;tcp.urp;tcp.cksum;"
 		"udp.sport;udp.dport;udp.len;udp.cksum;"
-		"dns.id;dns.flags;dns.opcode;dns.rcode;dns.questionRRs;dns.answerRRs;dns.authRRs;dns.additRRs;dns.questions;\n"
+		"dns.id;dns.flags;dns.opcode;dns.rcode;dns.questionRRs;dns.answerRRs;dns.authRRs;dns.additRRs;dns.questions;dns.answers;\n"
 	   };
 #define OUTPUT_SIZE 1024*1024*2 /* 2 MBytes */
 	char *output = NULL;
