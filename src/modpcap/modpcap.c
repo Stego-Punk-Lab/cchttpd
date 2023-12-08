@@ -204,6 +204,13 @@ parse_resource_records(_dnshdr* dnshdr, u_int16_t count, size_t* region_base_off
 	return records;
 }
 
+const char* get_dns_type(int type_value) {
+	if (type_value >= 0 && type_value < MAX_DNS_TYPES && dnsTypes[type_value]) {
+		return dnsTypes[type_value];
+	}
+	return "";
+}
+
 void
 handle_dns(_dnshdr *dnshdr, _hdr_descr *hdr_desc)
 {
@@ -244,9 +251,9 @@ handle_dns(_dnshdr *dnshdr, _hdr_descr *hdr_desc)
 	// TODO handle multiple questions
 	if (question) {
 		snprintf(hdr_desc->str_dns_questions, sizeof(hdr_desc->str_dns_questions) - 1,
-		"\"%s,%d,%d\"",
+		"\"%s,%s,%d\"",
 			question->name,
-			question->qtype,
+			get_dns_type(question->qtype),
 			question->qclass
 		);
 	}
@@ -258,9 +265,9 @@ handle_dns(_dnshdr *dnshdr, _hdr_descr *hdr_desc)
 		for (uint16_t i = 0; i < ntohs(dnshdr->ancount); i++) {
 			char tmp_buffer[256];
 			size_t offset = snprintf(tmp_buffer, sizeof(tmp_buffer),
-					 "%s,%d,%d,%d,%d,",
+					 "%s,%s,%d,%d,%d,",
 					 answers[i]->name,
-					 answers[i]->type,
+					 get_dns_type(answers[i]->type),
 					 answers[i]->class,
 					 answers[i]->ttl,
 					 answers[i]->rdlength
@@ -270,14 +277,13 @@ handle_dns(_dnshdr *dnshdr, _hdr_descr *hdr_desc)
 
 			strcat(buffer, tmp_buffer);
 			if (i < ntohs(dnshdr->ancount) - 1) {
-				strcat(buffer, "|||");
+				strcat(buffer, "|");
 			}
 		}
 
 		strcat(buffer, "\"");
 		strcpy(hdr_desc->str_dns_answers, buffer);
 	}
-
 }
 
 void
