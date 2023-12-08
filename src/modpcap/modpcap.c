@@ -258,7 +258,6 @@ handle_dns(_dnshdr *dnshdr, _hdr_descr *hdr_desc)
 		);
 	}
 
-
 	if (ntohs(dnshdr->ancount) > 0) {
 		// TODO size of buffer dynamic?
 		char buffer[1024] = {'\"'};
@@ -272,8 +271,18 @@ handle_dns(_dnshdr *dnshdr, _hdr_descr *hdr_desc)
 					 answers[i]->ttl,
 					 answers[i]->rdlength
 			);
-			memcpy(tmp_buffer + offset, answers[i]->data, answers[i]->rdlength);
-			tmp_buffer[offset + answers[i]->rdlength] = '\0';
+
+			// parse data per type TODO refactor into method
+			if (answers[i]->type == 1) {
+				inet_ntop(AF_INET, answers[i]->data, tmp_buffer + offset, INET_ADDRSTRLEN);
+			} else if (answers[i]->type == 28) {
+				// TODO needs testing
+				inet_ntop(AF_INET6, answers[i]->data, tmp_buffer + offset, INET6_ADDRSTRLEN);
+			} else {
+				// send back the raw binary data as fallback
+				memcpy(tmp_buffer + offset, answers[i]->data, answers[i]->rdlength);
+				tmp_buffer[offset + answers[i]->rdlength] = '\0';
+			}
 
 			strcat(buffer, tmp_buffer);
 			if (i < ntohs(dnshdr->ancount) - 1) {
