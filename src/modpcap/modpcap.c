@@ -257,24 +257,26 @@ handle_dns(_dnshdr *dnshdr, _hdr_descr *hdr_desc)
 	char buffer[4096] = {"\""};
 	for (uint16_t i = 0; i < ntohs(dnshdr->ancount); i++) {
 		char tmp_buffer[256];
-		snprintf(tmp_buffer, sizeof(tmp_buffer),
-		         "%s,%d,%d,%d,%d,%x",
-		         answers[i]->name,
-		         answers[i]->type,
-		         answers[i]->class,
-		         answers[i]->ttl,
-		         answers[i]->rdlength,
-				// TODO copied data wrong
-		         answers[i]->data
+		size_t offset = snprintf(tmp_buffer, sizeof(tmp_buffer),
+				 "%s,%d,%d,%d,%d,",
+				 answers[i]->name,
+				 answers[i]->type,
+				 answers[i]->class,
+				 answers[i]->ttl,
+				 answers[i]->rdlength
 		);
+		memcpy(tmp_buffer + offset, answers[i]->data, answers[i]->rdlength);
+		tmp_buffer[offset + answers[i]->rdlength] = '\0';
+
 		strcat(buffer, tmp_buffer);
-		if (i < dnshdr->ancount - 1) {
+		if (i < dnshdr->ancount - 2) {
 			strcat(buffer, "|||");
 		}
 	}
 
 	// TODO char is lost
-	buffer[4095]="\"";
+	buffer[4094]="\"";
+	buffer[4095]="\0";
 	strcpy(hdr_desc->str_dns_answers, buffer);
 }
 
