@@ -415,6 +415,7 @@ create_respinf(httphdr_t *i_hdr, httphdr_t *o_hdr)
 									logstr(__FILE__, __LINE__, "unable to do pthread_mutex_unlock()\n");
 								}
 								logstr(__FILE__, __LINE__, "dlopen() error\n");
+								logstr(__FILE__, __LINE__, dlerror());
 								error = ERROR_FORBIDDEN;
 								set_errpage(o_hdr, error);
 								break;
