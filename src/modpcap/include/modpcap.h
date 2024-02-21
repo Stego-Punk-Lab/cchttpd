@@ -207,10 +207,20 @@
 	#include <net/if_arp.h>
 	#include <netinet/if_ether.h>
 	#include <pcap.h>
+#elif defined(__APPLE__)
+	#include <pcap.h>
+	#include <net/if_arp.h>
+	#include <netinet/if_ether.h>
 #endif
+
+
 
 /* currently, we only support little endian, e.g., in DNS */
 #ifdef __linux__
+	#if !defined(__BYTE_ORDER__) || (__BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__)
+		#error "Currently only supporting little endian systems."
+	#endif
+#elif defined(__APPLE__)
 	#if !defined(__BYTE_ORDER__) || (__BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__)
 		#error "Currently only supporting little endian systems."
 	#endif
