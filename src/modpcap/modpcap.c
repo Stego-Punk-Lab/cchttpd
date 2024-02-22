@@ -21,7 +21,7 @@
 
 #include "include/modpcap.h"
 
-#define SKIP_PKT_DNT_CNT	count--; /* packet doesn't count */; continue; /* skip */
+#include <ctype.h>
 
 int mod_init(void)
 {
@@ -47,43 +47,43 @@ get_framelen(int datalink)
 	int framelen;
 
 	switch (datalink) {
-	case DLT_NULL:
-		framelen = 0;
-		break;
-	case DLT_LOOP:
-		framelen = 4;
-		break;
-	case DLT_EN10MB:
-		framelen = sizeof(struct ether_header);
-		break;
-	case DLT_IEEE802:
-		framelen = 22;
-		break;
-#ifdef __linux__
-	case DLT_LINUX_SLL:
-		framelen = 16;
-		break;
-#endif
-	case DLT_SLIP:
-		framelen = 24;
-		break;
-	case DLT_PPP:
-		framelen = 24;
-		break;
-	case DLT_FDDI:
-		framelen = 2 + 1 + 1 + 6 + 6; /* 16; not tested! */
-		break;
-#ifdef DLT_IEEE802_11 /* OpenBSD >= 3.4 */
-	case DLT_IEEE802_11:
-#else	/* ifdef DLT_IEEE802 */	/* OpenBSD <= 3.3 -- I wrote this code in 2008 :) */
-	case DLT_IEEE802:
-#endif
-		framelen = 2 + 2 + 6 + 6 + 6 + 2 + 6; /* 30; not tested! */
-		break;
-	case DLT_ENC: /* TODO: IPSec */
-	default:
-		fprintf(stderr, "datalink type %i not supported.\n", datalink);
-		return 0;
+		case DLT_NULL:
+			framelen = 0;
+			break;
+		case DLT_LOOP:
+			framelen = 4;
+			break;
+		case DLT_EN10MB:
+			framelen = sizeof(struct ether_header);
+			break;
+		case DLT_IEEE802:
+			framelen = 22;
+			break;
+	#ifdef __linux__
+		case DLT_LINUX_SLL:
+			framelen = 16;
+			break;
+	#endif
+		case DLT_SLIP:
+			framelen = 24;
+			break;
+		case DLT_PPP:
+			framelen = 24;
+			break;
+		case DLT_FDDI:
+			framelen = 2 + 1 + 1 + 6 + 6; /* 16; not tested! */
+			break;
+	#ifdef DLT_IEEE802_11 /* OpenBSD >= 3.4 */
+		case DLT_IEEE802_11:
+	#else	/* ifdef DLT_IEEE802 */	/* OpenBSD <= 3.3 -- I wrote this code in 2008 :) */
+		case DLT_IEEE802:
+	#endif
+			framelen = 2 + 2 + 6 + 6 + 6 + 2 + 6; /* 30; not tested! */
+			break;
+		case DLT_ENC: /* TODO: IPSec */
+		default:
+			fprintf(stderr, "datalink type %i not supported.\n", datalink);
+			return 0;
 	}
 #ifdef DEBUG
 	printf("pcap.framelen=%i\n", framelen);
@@ -296,7 +296,7 @@ handle_dns(_dnshdr *dnshdr, _hdr_descr *hdr_desc)
 }
 
 void
-handle_tcp(_tcphdr *tcphdr, _hdr_descr *hdr_desc, _pcap_filter *filter)
+handle_tcp(_tcphdr *tcphdr, _hdr_descr *hdr_desc)
 {
 	snprintf(hdr_desc->str_tcp_sport, sizeof(hdr_desc->str_tcp_sport) - 1, "%u", htons(tcphdr->th_sport));
 	snprintf(hdr_desc->str_tcp_dport, sizeof(hdr_desc->str_tcp_dport) - 1, "%u", htons(tcphdr->th_dport));
@@ -309,13 +309,13 @@ handle_tcp(_tcphdr *tcphdr, _hdr_descr *hdr_desc, _pcap_filter *filter)
 	snprintf(hdr_desc->str_tcp_cksum, sizeof(hdr_desc->str_tcp_cksum) - 1, "%u", htons(tcphdr->th_sum));
 
 	/* handle specific protocols here */
-	if (is_packet_tcp_dns(tcphdr) && filter->dns == 1) {
+	if (is_packet_tcp_dns(tcphdr)) {
 		handle_dns((_dnshdr *)(tcphdr+1), hdr_desc);
 	}
 }
 
 void
-handle_udp(_udphdr *udphdr, _hdr_descr *hdr_desc, _pcap_filter *filter)
+handle_udp(_udphdr *udphdr, _hdr_descr *hdr_desc)
 {
 	snprintf(hdr_desc->str_udp_sport, sizeof(hdr_desc->str_udp_sport) - 1, "%u", htons(udphdr->uh_sport));
 	snprintf(hdr_desc->str_udp_dport, sizeof(hdr_desc->str_udp_dport) - 1, "%u", htons(udphdr->uh_dport));
@@ -323,7 +323,7 @@ handle_udp(_udphdr *udphdr, _hdr_descr *hdr_desc, _pcap_filter *filter)
 	snprintf(hdr_desc->str_udp_cksum, sizeof(hdr_desc->str_udp_cksum) - 1, "%u", htons(udphdr->uh_sum));
 
 	/* handle specific protocols here */
-	if (is_packet_udp_dns(udphdr) && filter->dns == 1) {
+	if (is_packet_udp_dns(udphdr)) {
 		handle_dns((_dnshdr *)(udphdr+1), hdr_desc);
 	}
 }
@@ -372,7 +372,7 @@ void build_packet_string(struct pcap_pkthdr* hdr, _iphdr* iphdr, int* len_new_pk
 }
 
 int
-print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
+print_pcap_contents(int fd_snd, char *filename, char* filter_str, int limit)
 {
 	pcap_t *descr;
 	int pcap_next_ex_result = 0;
@@ -438,9 +438,24 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 
 	memcpy(output, header, strlen(header));
 	output_len_whole = output_len_cur = strlen(header);
+
+	struct bpf_program filter;
+	if (pcap_compile(descr, &filter, filter_str, 0,
+		PCAP_NETMASK_UNKNOWN) != 0) {
+		fprintf(stderr, "pcap_compile() error in cr.c!\n");
+		pcap_perror(descr, "pcap_compile in CR");
+		sleep(1);
+		return -1;
+		}
+	if (pcap_setfilter(descr, &filter) == -1) {
+		perror("pcap_setfilter");
+		fprintf(stderr, "pcap_setfilter() error in cr.c!\n");
+		sleep(1);
+		return -1;
+	}
 	
 	/* we keep the result returned by pcap_next_ex() to check it later */
-	while ((pcap_next_ex_result = pcap_next_ex(descr, &hdr, &packet /* packet data */)) == 1 && count < filter.limit) {
+	while ((pcap_next_ex_result = pcap_next_ex(descr, &hdr, &packet /* packet data */)) == 1 && count < limit) {
 		count++;
 		/* start a new packet w/ empty string */
 		bzero(new_pkt_str, sizeof(new_pkt_str));
@@ -462,9 +477,6 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 
 		switch (htons(eh->ether_type)) {
 		case ETHERTYPE_IP:
-			if (filter.ip4 == 0) {
-				SKIP_PKT_DNT_CNT
-			}
 			// check if iphdr fits into rest of frame b/f cont.
 			if (hdr->caplen < (sizeof(struct ether_header) + sizeof(_iphdr))) {
 				fprintf(stderr, "Packet too small for IP header. Skipping.\n");
@@ -483,63 +495,35 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 			snprintf(hdr_desc.str_ip_sum, 7, "%u", iphdr->ip_sum);
 
 			switch (iphdr->ip_p) {
-			case 1:
-				if (filter.icmp4 == 0) {
-					SKIP_PKT_DNT_CNT
-				}
-				hdr_desc.str_l3_proto = "icmp";
-				break;
-			case 2:
-				if (filter.others == 0) {
-					SKIP_PKT_DNT_CNT
-				}
-				hdr_desc.str_l3_proto = "igmp";
-				break;
-			case 6:
-				if (filter.tcp == 0) {
-					SKIP_PKT_DNT_CNT
-				}
-				hdr_desc.str_l3_proto = "tcp";
+				case IPPROTO_ICMP:
+					hdr_desc.str_l3_proto = "icmp";
+					break;
+				case IPPROTO_IGMP:
+					hdr_desc.str_l3_proto = "igmp";
+					break;
+				case IPPROTO_TCP:
+					hdr_desc.str_l3_proto = "tcp";
 
-				tcphdr = (_tcphdr *) (packet + framelen + (iphdr->ip_hl*4));
+					tcphdr = (_tcphdr *) (packet + framelen + (iphdr->ip_hl*4));
 
-				// filter (non) dns packets
-				if ((filter.dns == 1) != is_packet_tcp_dns(tcphdr) && filter.none == 0) {
-					SKIP_PKT_DNT_CNT
-				}
+					//FIXME: check pkt len to see if it fits tcphdr
+					handle_tcp(tcphdr, &hdr_desc);
+					break;
+				case IPPROTO_UDP:
+					hdr_desc.str_l3_proto = "udp";
+					udphdr = (_udphdr *) (packet + framelen + (iphdr->ip_hl*4));
+					//FIXME: check pkt len to see if it fits udphdr
 
-				//FIXME: check pkt len to see if it fits tcphdr
-				handle_tcp(tcphdr, &hdr_desc, &filter);
-				break;
-			case 17:
-				if (filter.udp == 0) {
-					SKIP_PKT_DNT_CNT
-				}
-				hdr_desc.str_l3_proto = "udp";
-				udphdr = (_udphdr *) (packet + framelen + (iphdr->ip_hl*4));
-				//FIXME: check pkt len to see if it fits udphdr
-
-				// filter (non) dns packets
-				if ((filter.dns == 1) != is_packet_udp_dns(udphdr) && filter.none == 0) {
-					SKIP_PKT_DNT_CNT
-				}
-
-				handle_udp(udphdr, &hdr_desc, &filter);
-				break;
-			default:
-				if (filter.others == 0) {
-					SKIP_PKT_DNT_CNT
-				}
-				/* other protocol: TODO: use numeric value */
-				hdr_desc.str_l3_proto = "other";
-				printf("%hi\n", iphdr->ip_p);
-				break;
+					handle_udp(udphdr, &hdr_desc);
+					break;
+				default:
+					/* other protocol: TODO: use numeric value */
+					hdr_desc.str_l3_proto = "other";
+					printf("%hi\n", iphdr->ip_p);
+					break;
 			}
 			break;
 		case ETHERTYPE_IPV6:
-			if (filter.ip6 == 0) {
-				SKIP_PKT_DNT_CNT
-			}
 			// check if iphdr fits into rest of frame b/f cont.
 			if (hdr->caplen < (sizeof(struct ether_header) + sizeof(_ip6hdr))) {
 				fprintf(stderr, "Packet too small for IP6 header. Skipping.\n");
@@ -559,87 +543,44 @@ print_pcap_contents(int fd_snd, char *filename, _pcap_filter filter)
 				return -1;
 			}
 			switch (ip6hdr->ip6_ctlun.ip6_un1.ip6_un1_nxt) {
-			case 1:
-				if (filter.icmp4 == 0) {
-					SKIP_PKT_DNT_CNT
-				}
+			case IPPROTO_ICMP:
 				hdr_desc.str_l3_proto = "icmp";
 				break;
-			case 2:
-				if (filter.others == 0) {
-					SKIP_PKT_DNT_CNT
-				}
-
+			case IPPROTO_IGMP:
 				hdr_desc.str_l3_proto = "igmp";
 				break;
-			case 6:
-				if (filter.tcp == 0) {
-					SKIP_PKT_DNT_CNT
-				}
+			case IPPROTO_TCP:
 				hdr_desc.str_l3_proto = "tcp";
 				//FIXME: check pkt len to see if it fits tcphdr
 				tcphdr = (_tcphdr *) (packet + framelen + sizeof(_ip6hdr));
-
-				// filter (non) dns packets
-				if ((filter.dns == 1) != is_packet_tcp_dns(tcphdr) && filter.none == 0) {
-					SKIP_PKT_DNT_CNT
-				}
-
-				handle_tcp(tcphdr, &hdr_desc, &filter);
+				handle_tcp(tcphdr, &hdr_desc);
 				break;
-			case 17:
-				if (filter.udp == 0) {
-					SKIP_PKT_DNT_CNT
-				}
+			case IPPROTO_UDP:
 				hdr_desc.str_l3_proto = "udp";
 				//FIXME: check pkt len to see if it fits udphdr
 				udphdr = (_udphdr *) (packet + framelen + sizeof(_ip6hdr));
-
-				// filter (non) dns packets
-				if ((filter.dns == 1) != is_packet_udp_dns(udphdr) && filter.none == 0) {
-					SKIP_PKT_DNT_CNT
-				}
-
-				handle_udp(udphdr, &hdr_desc, &filter);
+				handle_udp(udphdr, &hdr_desc);
 				break;
-			case 58:
-				if (filter.icmp6 == 0) {
-					SKIP_PKT_DNT_CNT
-				}
+			case IPPROTO_ICMPV6:
 				hdr_desc.str_l3_proto = "icmp6";
 				break;
 			case 59:
-				if (filter.others == 0) {
-					SKIP_PKT_DNT_CNT
-				}
 				hdr_desc.str_l3_proto = "ip6-no-next-hdr"; /* IPv6-NoNxt */
 				break;
 			case 60:
-				if (filter.others == 0) {
-					SKIP_PKT_DNT_CNT
-				}
 				hdr_desc.str_l3_proto = "ip6-dst-opts";
 				break;
 			default:
-				if (filter.others == 0) {
-					SKIP_PKT_DNT_CNT
-				}
 				hdr_desc.str_l3_proto = "other";
 				/*printf("%hi (pkt no %i)\n", ip6hdr->ip6_ctlun.ip6_un1.ip6_un1_nxt, count);*/
 				break;
 			}
 			break;
 		case ETHERTYPE_ARP:
-			if (filter.others == 0)
-				SKIP_PKT_DNT_CNT
-			
 			hdr_desc.str_ether_type = "arp";
 			break;
 		default:
 			/* other ether type: TODO: use the numeric value */
-			if (filter.others == 0)
-				SKIP_PKT_DNT_CNT
-			
 			hdr_desc.str_ether_type = "other";
 #ifdef DEBUG
 			printf("ether_type=%hx\n", htons(eh->ether_type));
@@ -700,111 +641,65 @@ int is_filename_safe(int fd_snd, char* filename) {
 	return 1;
 }
 
-void create_filter(char* query_string, _pcap_filter* filter) {
-	char *tmp_val;
+void url_decode(char *dst, const char *src) {
+	char a, b;
+	while (*src) {
+		if ((*src == '%') &&
+			((a = src[1]) && (b = src[2])) &&
+			(isxdigit(a) && isxdigit(b))) {
+			if (a >= 'a')
+				a -= 'a'-'A';
+			if (a >= 'A')
+				a -= ('A' - 10);
+			else
+				a -= '0';
+			if (b >= 'a')
+				b -= 'a'-'A';
+			if (b >= 'A')
+				b -= ('A' - 10);
+			else
+				b -= '0';
 
-	filter->ip4 = filter->icmp4 = filter->ip6 = filter->icmp6 = filter->tcp = filter->udp = filter->dns = filter->others = filter->none = 1;
-	filter->limit = MODPCAP_FILTER_LIMIT_MAX;
+			*dst++ = 16*a+b;
+			src+=3;
+			} else if (*src == '+') {
+				*dst++ = ' ';
+				src++;
+			} else {
+				*dst++ = *src++;
+			}
+	}
+	*dst++ = '\0';
+}
 
-	if ((tmp_val = cwd_get_value_from_var(query_string, "ip4"))) {
-		filter->none = 0;
-		if (tmp_val[0] == '1') {
-			filter->ip4 = 1;
-		} else {
-			filter->ip4 = 0;
-		}
-		free(tmp_val);
-	}
-	if ((tmp_val = cwd_get_value_from_var(query_string, "icmp4"))) {
-		filter->none = 0;
-		if (tmp_val[0] == '1') {
-			filter->icmp4 = 1;
-		} else {
-			filter->icmp4 = 0;
-		}
-		free(tmp_val);
-	}
-	if ((tmp_val = cwd_get_value_from_var(query_string, "ip6"))) {
-		filter->none = 0;
-		if (tmp_val[0] == '1') {
-			filter->ip6 = 1;
-		} else {
-			filter->ip6 = 0;
-		}
-		free(tmp_val);
-	}
-	if ((tmp_val = cwd_get_value_from_var(query_string, "icmp6"))) {
-		filter->none = 0;
-		if (tmp_val[0] == '1') {
-			filter->icmp6 = 1;
-		} else {
-			filter->icmp6 = 0;
-		}
-		free(tmp_val);
-	}
-	if ((tmp_val = cwd_get_value_from_var(query_string, "tcp"))) {
-		filter->none = 0;
-		if (tmp_val[0] == '1') {
-			filter->tcp = 1;
-		} else {
-			filter->tcp = 0;
-		}
-		free(tmp_val);
-	}
-	if ((tmp_val = cwd_get_value_from_var(query_string, "udp"))) {
-		filter->none = 0;
-		if (tmp_val[0] == '1') {
-			filter->udp = 1;
-		} else {
-			filter->udp = 0;
-		}
-		free(tmp_val);
-	}
-	if ((tmp_val = cwd_get_value_from_var(query_string, "dns"))) {
-		filter->none = 0;
-		if (tmp_val[0] == '1') {
-			filter->dns = 1;
-		} else {
-			filter->dns = 0;
-		}
-		free(tmp_val);
-	}
-	if ((tmp_val = cwd_get_value_from_var(query_string, "others"))) {
-		if (tmp_val[0] == '1') {
-			filter->others = 1;
-		} else {
-			filter->others = 0;
-		}
-		free(tmp_val);
-	}
-	if ((tmp_val = cwd_get_value_from_var(query_string, "limit"))) {
-		filter->limit = atoi(tmp_val);
-		if (filter->limit <= 0) {
-			filter->limit = MODPCAP_FILTER_LIMIT_MAX; /* set to max. value */
-			fprintf(stderr,
-			        "invalid 'limit' value (%i) from client's URL parameter.\n",
-			        filter->limit);
-		}
-		free(tmp_val);
-	}
+int get_limit_value(char *query_string) {
+	int limit = MODPCAP_FILTER_LIMIT_MAX;
+	const char* tmp_value = cwd_get_value_from_var(query_string, "limit");
+	if (tmp_value)
+		limit = atoi(tmp_value);
+
+	return limit;
 }
 
 void
 mod_reqhandler(int fd_snd, char *query_string)
 {
-	_pcap_filter filter;
-	
 	if (query_string) {
 		char *filename;
 		if ((filename = cwd_get_value_from_var(query_string, "file"))) {
 
 			if (! is_filename_safe(fd_snd, filename)) return;
-			
-			/* before we open the pcap file, get potential filter content */
-			create_filter(query_string, &filter);
+
+			// TODO handle parsing errors here? Shoudl be here to give the user the correct error message?
+			char* filter_string = cwd_get_value_from_var(query_string, "filter");
+			if (filter_string)
+				url_decode(filter_string, filter_string);
+
+
+			const int limit = get_limit_value(query_string);
 
 			// print pcap content
-			if (print_pcap_contents(fd_snd, filename, filter) != 0) {
+			if (print_pcap_contents(fd_snd, filename, filter_string, limit) != 0) {
 				cwd_print(fd_snd, ERROR_PCAP_FILE_NOT_OPENED);
 			}
 			free(filename);
