@@ -238,6 +238,7 @@
 
 #define ERROR_PCAP_FILEQUERY_MISSING "<html><body>Error: You need to provide a filename in the URL. Example: <code>?file=ip6.pcap</code> (the pcap file must be located in <i>" PCAP_BASEPATH "</i>).</body></html>"
 #define ERROR_PCAP_FILE_NOT_OPENED "<html><body>Error: Unable to open your requested file (probably not found or no permission, see server output).</body></html>"
+#define ERROR_PCAP_FILTER_SYNTAX "<html><body>Error: Unable to process your passed filter (probably a syntax error).</body></html>"
 
 #define BZERO(x) bzero(x, sizeof(x));
 

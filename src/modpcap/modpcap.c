@@ -150,9 +150,9 @@ parse_questions(_dnshdr* dnshdr, size_t* current_question_index) {
 }
 
 void parse_rr_name(const _dns_question* question, _dns_rr *record, const unsigned char* answer_region, size_t* index) {
-	uint8_t c = answer_region[0];
+	const uint8_t c = answer_region[0];
 	if ((c & 0xc0) == 0xc0) {
-		size_t pointer_offset = ((c & 0x3f) << 8) + answer_region[1];
+		const size_t pointer_offset = ((c & 0x3f) << 8) + answer_region[1];
 
 		// check if offset is found in questions
 		if (question && question->header_offset == pointer_offset) {
@@ -214,7 +214,7 @@ const char* get_dns_type(int type_value) {
 void
 handle_dns(_dnshdr *dnshdr, _hdr_descr *hdr_desc)
 {
-	char dns_opcode = (dnshdr->opcode == DNS_QUERY ? 'Q' : (dnshdr->opcode == DNS_IQUERY ? 'I' : (dnshdr->opcode == DNS_STATUS ? 'S' : (dnshdr->opcode == DNS_NS_NOTIFY_OP ? 'N' : (dnshdr->opcode == DNS_UPDATE ? 'U' : '?')))));
+	const char dns_opcode = (dnshdr->opcode == DNS_QUERY ? 'Q' : (dnshdr->opcode == DNS_IQUERY ? 'I' : (dnshdr->opcode == DNS_STATUS ? 'S' : (dnshdr->opcode == DNS_NS_NOTIFY_OP ? 'N' : (dnshdr->opcode == DNS_UPDATE ? 'U' : '?')))));
 	
 	snprintf(hdr_desc->str_dns_id, sizeof(hdr_desc->str_dns_id) - 1, "0x%x", ntohs(dnshdr->id));
 	/* DNS flags combined */
@@ -263,7 +263,7 @@ handle_dns(_dnshdr *dnshdr, _hdr_descr *hdr_desc)
 		char buffer[1024] = {'\"'};
 		for (uint16_t i = 0; i < ntohs(dnshdr->ancount); i++) {
 			char tmp_buffer[256];
-			size_t offset = snprintf(tmp_buffer, sizeof(tmp_buffer),
+			const size_t offset = snprintf(tmp_buffer, sizeof(tmp_buffer),
 					 "%s,%s,%d,%d,%d,",
 					 answers[i]->name,
 					 get_dns_type(answers[i]->type),
@@ -372,9 +372,8 @@ void build_packet_string(struct pcap_pkthdr* hdr, _iphdr* iphdr, int* len_new_pk
 }
 
 int
-print_pcap_contents(int fd_snd, char *filename, char* filter_str, int limit)
+print_pcap_contents(int fd_snd, pcap_t *descr, int limit)
 {
-	pcap_t *descr;
 	int pcap_next_ex_result = 0;
 	const u_char *packet;
 	struct pcap_pkthdr *hdr;
@@ -386,7 +385,7 @@ print_pcap_contents(int fd_snd, char *filename, char* filter_str, int limit)
 	int framelen;
 	int count = 0;
 	struct ether_header *eh;
-	char errbuf[PCAP_ERRBUF_SIZE];
+
 	char header[] = {
 		"num.packets=_________________\n"
 		"timestamp;caplen;wirelen;ethertype;l3prot;"
@@ -403,31 +402,12 @@ print_pcap_contents(int fd_snd, char *filename, char* filter_str, int limit)
 	    len_new_pkt_str = 0;
 	_hdr_descr hdr_desc;
 	char new_pkt_str[4096] = { '\0' };
-	char *filename_full_path = NULL;
+
 	
 	if ((output = calloc(OUTPUT_SIZE, sizeof(char))) == NULL) {
 		perror("calloc(output) in print_pcap_contents()\n");
 		return -1;
 	}
-	
-	if ((filename_full_path = calloc(sizeof(char), strlen(PCAP_BASEPATH) + strlen(filename) + 1)) == NULL) {
-		perror("calloc");
-		fprintf(stderr, "calloc()");
-		free(output);
-		return -1;
-	}
-	memcpy(filename_full_path, PCAP_BASEPATH, strlen(PCAP_BASEPATH));
-	memcpy(filename_full_path+strlen(PCAP_BASEPATH), filename, strlen(filename));
-
-	if ((descr = pcap_open_offline(filename_full_path, errbuf)) == NULL) {
-#ifdef DEBUG
-		fprintf(stderr, "filename: '%s', pcap file: '%s', errbuf='%s'\n", filename, filename_full_path, errbuf);
-#endif
-		free(filename_full_path);
-		free(output);
-		return -1;
-	}
-	free(filename_full_path);
 
 	datalink = pcap_datalink(descr);
 	if ((framelen = get_framelen(datalink)) == 0) {
@@ -438,21 +418,6 @@ print_pcap_contents(int fd_snd, char *filename, char* filter_str, int limit)
 
 	memcpy(output, header, strlen(header));
 	output_len_whole = output_len_cur = strlen(header);
-
-	struct bpf_program filter;
-	if (pcap_compile(descr, &filter, filter_str, 0,
-		PCAP_NETMASK_UNKNOWN) != 0) {
-		fprintf(stderr, "pcap_compile() error in cr.c!\n");
-		pcap_perror(descr, "pcap_compile in CR");
-		sleep(1);
-		return -1;
-		}
-	if (pcap_setfilter(descr, &filter) == -1) {
-		perror("pcap_setfilter");
-		fprintf(stderr, "pcap_setfilter() error in cr.c!\n");
-		sleep(1);
-		return -1;
-	}
 	
 	/* we keep the result returned by pcap_next_ex() to check it later */
 	while ((pcap_next_ex_result = pcap_next_ex(descr, &hdr, &packet /* packet data */)) == 1 && count < limit) {
@@ -645,7 +610,7 @@ void url_decode(char *dst, const char *src) {
 	char a, b;
 	while (*src) {
 		if ((*src == '%') &&
-			((a = src[1]) && (b = src[2])) &&
+			(((a = src[1])) && ((b = src[2]))) &&
 			(isxdigit(a) && isxdigit(b))) {
 			if (a >= 'a')
 				a -= 'a'-'A';
@@ -681,6 +646,48 @@ int get_limit_value(char *query_string) {
 	return limit;
 }
 
+int set_filter(const int fd_snd, char *query_string, pcap_t *descr) {
+	char *filter_string = cwd_get_value_from_var(query_string, "filter");
+	if (filter_string)
+		url_decode(filter_string, filter_string);
+
+	struct bpf_program filter;
+	if (pcap_compile(descr, &filter, filter_string, 0, PCAP_NETMASK_UNKNOWN) != 0) {
+		fprintf(stderr, "Couldn't parse filter %s: %s\n", filter_string, pcap_geterr(descr));
+		cwd_print(fd_snd, ERROR_PCAP_FILTER_SYNTAX);
+		return 0;
+	}
+	if (pcap_setfilter(descr, &filter) == -1) {
+		fprintf(stderr, "Couldn't parse filter %s: %s\n", filter_string, pcap_geterr(descr));
+		cwd_print(fd_snd, ERROR_PCAP_FILTER_SYNTAX);
+		return 0;
+	}
+	return 1;
+}
+
+pcap_t* get_pcap_handle(char *filename) {
+	pcap_t *descr;
+	char *filename_full_path = NULL;
+	if ((filename_full_path = calloc(sizeof(char), strlen(PCAP_BASEPATH) + strlen(filename) + 1)) == NULL) {
+		perror("calloc");
+		fprintf(stderr, "calloc()");
+		return NULL;
+	}
+	memcpy(filename_full_path, PCAP_BASEPATH, strlen(PCAP_BASEPATH));
+	memcpy(filename_full_path+strlen(PCAP_BASEPATH), filename, strlen(filename));
+
+	char errbuf[PCAP_ERRBUF_SIZE];
+	if ((descr = pcap_open_offline(filename_full_path, errbuf)) == NULL) {
+#ifdef DEBUG
+				fprintf(stderr, "filename: '%s', pcap file: '%s', errbuf='%s'\n", filename, filename_full_path, errbuf);
+#endif
+		free(filename_full_path);
+		return NULL;
+	}
+	free(filename_full_path);
+	return descr;
+}
+
 void
 mod_reqhandler(int fd_snd, char *query_string)
 {
@@ -690,16 +697,12 @@ mod_reqhandler(int fd_snd, char *query_string)
 
 			if (! is_filename_safe(fd_snd, filename)) return;
 
-			// TODO handle parsing errors here? Shoudl be here to give the user the correct error message?
-			char* filter_string = cwd_get_value_from_var(query_string, "filter");
-			if (filter_string)
-				url_decode(filter_string, filter_string);
-
-
+			pcap_t *descr;
+			if ((descr = get_pcap_handle(filename)) == NULL) return;
+			if (! set_filter(fd_snd, query_string, descr)) return;
 			const int limit = get_limit_value(query_string);
 
-			// print pcap content
-			if (print_pcap_contents(fd_snd, filename, filter_string, limit) != 0) {
+			if (print_pcap_contents(fd_snd, descr, limit) != 0) {
 				cwd_print(fd_snd, ERROR_PCAP_FILE_NOT_OPENED);
 			}
 			free(filename);
