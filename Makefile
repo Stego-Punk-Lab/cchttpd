@@ -89,10 +89,10 @@ install : bin/cchttpd
 	if [ ! -d $(WWWDIR) ]; then mkdir $(WWWDIR); fi
 	if [ ! -d $(WWWDIR)/index.html ]; then echo '<html><head><title>cchttpd is ready</title></head><body><h1>cchttpd is ready!</h1></body></html>' > $(WWWDIR)/index.html; fi
 	if [ ! -d $(WWWDIR)/cgi-bin ]; then mkdir $(WWWDIR)/cgi-bin; chmod og-w $(WWWDIR)/cgi-bin; fi
-	cp -v ./bin/cchttpd /usr/sbin/cchttpd
-	if [ -f bin/libcwdev.so ]; then cp -v bin/libcwdev.so /usr/lib/libcwdev-1.0.so; fi
-	if [ ! -d /usr/include/cwdev ]; then mkdir /usr/include/cwdev; chmod 755 /usr/include/cwdev; fi
-	cp -v src/libcwdev/include/libcwdev.h /usr/include/cwdev/libcwdev.h
+	cp -v ./bin/cchttpd ${CCHTTPDDIR}cchttpd
+	if [ -f bin/libcwdev.so ]; then cp -v bin/libcwdev.so ${CWDEVDIR}libcwdev-1.0.so; fi
+	if [ ! -d ${CWDEVINCLUDEDIR}cwdev ]; then mkdir -p ${CWDEVINCLUDEDIR}cwdev; chmod 755 ${CWDEVINCLUDEDIR}cwdev; fi
+	cp -v src/libcwdev/include/libcwdev.h ${CWDEVINCLUDEDIR}cwdev/libcwdev.h
 	touch /var/log/cchttpd; chmod og-w /var/log/cchttpd
 	@echo "Please make sure that /var/log/cchttpd is writeable by the user you are running this server with."
 

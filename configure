@@ -275,6 +275,16 @@ if [ "`uname`" = "Linux" ]; then
 	echo 'LIBDL=-ldl'>> $MAKEFILE_INC
 fi
 
+if [ "`uname`" = "Darwin" ]; then
+	echo 'CCHTTPDDIR=/usr/local/bin/'>> $MAKEFILE_INC
+	echo 'CWDEVINCLUDEDIR=/usr/local/include/'>> $MAKEFILE_INC
+	echo 'CWDEVDIR=/usr/local/lib/'>> $MAKEFILE_INC
+else
+  echo 'CCHTTPDDIR=/usr/sbin/'>> $MAKEFILE_INC
+  echo 'CWDEVINCLUDEDIR=/usr/include/'>> $MAKEFILE_INC
+  echo 'CWDEVDIR=/usr/lib/'>> $MAKEFILE_INC
+fi
+
 echo "TABCPATH=$TABCPATH">> $MAKEFILE_INC
 echo "ORDER=-DORDER=$ORDER">> $MAKEFILE_INC
 echo >> $MAKEFILE_INC
