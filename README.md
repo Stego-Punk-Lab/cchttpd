@@ -72,18 +72,23 @@ $ sudo make install_modpcap
 
 Finally, visit [http://127.0.0.1:8080/cgi-bin/modpcap.cm?file=ip6.pcap](http://127.0.0.1:8080/cgi-bin/modpcap.cm?file=ip6.pcap) to see if it works. It should provide you with the packet data for the pcap file *ip6.pcap*, located in */var/www/pcaps*. Place your *.pcap* files in */var/www/pcaps/* and you should be able to use them.
 
-**Filters:** Per default, all packets are returned by `modpcap`. However, there is a way to explicitly *exclude* certain types of packets. Assume you want only IPv4 but no IPv6 packets, and only UDP, but no TCP packets, you could run a simple filter through the URL, where you can use things like `ip=0` or `tcp=1` to remove/include specific protocols:
+**Filters:** Per default, all packets are returned by `modpcap`. However, there is a way to explicitly *filter* certain types of packets using libpcap filter syntax:
 
 ```
-$ GET 'http://127.0.0.1:8080/cgi-bin/modpcap.cm?file=ip6.pcap&ip6=0&tcp=0&ip4=1&udp=1'
-num.packets=0000000000000006
+$ GET 'http://127.0.0.1:8080/cgi-bin/modpcap.cm?file=ip6.pcap&filter=ip%20and%20udp'
+num.packets=0000000000000002 
 
-timestamp;caplen;wirelen;ethertype;l3prot;ip.src;ip.dst;ip.v;ip.hl;ip.tos;ip.id;ip.off;ip.ttl;ip.sum_raw;ip6.src;ip6.dst;tcp.sport;tcp.dport;tcp.seq;tcp.ack;tcp.off;tcp.flags;tcp.win;tcp.urp;udp.sport;udp.dport;udp.len;udp.cksum
-1694626462.161312;82;82;ip4;udp;127.0.0.1;127.0.0.1;4;5;0;20365;64;64;9135;;;;;;;;;;;34003;53;48;65143
-1694626462.161637;338;338;ip4;udp;127.0.0.53;127.0.0.53;4;5;0;42993;64;1;52104;;;;;;;;;;;53;34003;304;65399
+timestamp;caplen;wirelen;ethertype;l3prot;ip.src;ip.dst;ip.v;ip.hl;ip.tos;ip.id;ip.off;ip.ttl;ip.cksum;ip6.src;ip6.dst;tcp.sport;tcp.dport;tcp.seq;tcp.ack;tcp.off;tcp.flags;tcp.win;tcp.urp;tcp.cksum;udp.sport;udp.dport;udp.len;udp.cksum;dns.id;dns.flags;dns.opcode;dns.rcode;dns.questionRRs;dns.answerRRs;dns.authRRs;dns.additRRs;dns.questions;dns.answers; 
+1694626462.161312;82;82;ip4;udp;127.0.0.1;127.0.0.1;4;5;0;20365;64;64;9135;;;;;;;;;;;;34003;53;48;65143;0xf078;Q/-/-/RD/-/-/AD/-;Q;0;1;0;0;1;"i.ytimg.com,A,1";;
+1694626462.161637;338;338;ip4;udp;127.0.0.53;127.0.0.53;4;5;0;42993;64;1;52104;;;;;;;;;;;;53;34003;304;65399;0xf078;R/-/-/RD/RA/-/-/-;Q;0;1;16;0;1;"i.ytimg.com,A,1";"i.ytimg.com,A,1,5,4,142.250.184.214|i.ytimg.com,A,1,5,4,142.250.185.214|i.ytimg.com,A,1,5,4,216.58.206.54|i.ytimg.com,A,1,5,4,142.250.186.150|i.ytimg.com,A,1,5,4,142.250.74.214|i.ytimg.com,A,1,5,4,142.250.185.246|i.ytimg.com,A,1,5,4,172.217.16.150|i.ytimg.com,A,1,5,4,142.250.186.118|i.ytimg.com,A,1,5,4,142.250.184.246|i.ytimg.com,A,1,5,4,172.217.18.22|i.ytimg.com,A,1,5,4,172.217.16.214|i.ytimg.com,A,1,5,4,142.250.181.246|i.ytimg.com,A,1,5,4,142.250.185.182|i.ytimg.com,A,1,5,4,142.250.186.182|i.ytimg.com,A,1,5,4,142.250.186.54|i.ytimg.com,A,1,5,4,142.250.186.86";
 ```
+```
+$ GET 'http://127.0.0.1:8080/cgi-bin/modpcap.cm?file=ip6.pcap&filter=ip%20and%20(src%20host%2010.0.0.1%20or%20dst%20port%2053)'
+num.packets=0000000000000001 
 
-Currently supported filters are: `ip4`, `ip6`, `icmp4`, `icmp6`, `tcp`, `udp`, `dns`, and `others`. Use `others=0` to, e.g., filter out ARP packets. Note that if you set `ip=0` and/or `ip6=0`, it follows that even if an IPv4 or IPv6 packet contains ICMP(v6), UDP, TCP etc., these will be filterted out even if explicitly included through, e.g., `tcp=1`.
+timestamp;caplen;wirelen;ethertype;l3prot;ip.src;ip.dst;ip.v;ip.hl;ip.tos;ip.id;ip.off;ip.ttl;ip.cksum;ip6.src;ip6.dst;tcp.sport;tcp.dport;tcp.seq;tcp.ack;tcp.off;tcp.flags;tcp.win;tcp.urp;tcp.cksum;udp.sport;udp.dport;udp.len;udp.cksum;dns.id;dns.flags;dns.opcode;dns.rcode;dns.questionRRs;dns.answerRRs;dns.authRRs;dns.additRRs;dns.questions;dns.answers;
+1694626462.161312;82;82;ip4;udp;127.0.0.1;127.0.0.1;4;5;0;20365;64;64;9135;;;;;;;;;;;;34003;53;48;65143;0xf078;Q/-/-/RD/-/-/AD/-;Q;0;1;0;0;1;"i.ytimg.com,A,1";;
+```
 
 If you have a larger pcap file and want to test your filter, you might only want to parse the first 1,000 packets or so. In this case, use `limit=1000` as an URL parameter:
 
